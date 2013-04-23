@@ -48,6 +48,7 @@ static unsigned int min_sampling_rate;
 
 #define LATENCY_MULTIPLIER			(1000)
 #define MIN_LATENCY_MULTIPLIER			(100)
+#define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define MAX_SAMPLING_DOWN_FACTOR		(10)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
@@ -495,12 +496,6 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 				return rc;
 			}
 
-			/*
-			 * conservative does not implement micro like ondemand
-			 * governor, thus we are bound to jiffes/HZ
-			 */
-			min_sampling_rate =
-				MIN_SAMPLING_RATE_RATIO * jiffies_to_usecs(10);
 			/* Bring kernel and HW constraints together */
 			min_sampling_rate = max(min_sampling_rate,
 					MIN_LATENCY_MULTIPLIER * latency);
@@ -570,10 +565,28 @@ struct cpufreq_governor cpufreq_gov_conservative = {
 
 static int __init cpufreq_gov_dbs_init(void)
 {
+	u64 idle_time;
+	int cpu = get_cpu();
+
 	dbs_wq = alloc_workqueue("conservative_dbs_wq", WQ_HIGHPRI, 0);
 	if (!dbs_wq) {
 		printk(KERN_ERR "Failed to create conservative_dbs_wq workqueue\n");
 		return -EFAULT;
+	}
+
+	idle_time = get_cpu_idle_time_us(cpu, NULL);
+	put_cpu();
+	if (idle_time != -1ULL) {
+		/*
+		 * In nohz/micro accounting case we set the minimum frequency
+		 * not depending on HZ, but fixed (very low). The deferred
+		 * timer might skip some samples if idle/sleeping as needed.
+		*/
+		min_sampling_rate = MICRO_FREQUENCY_MIN_SAMPLE_RATE;
+	} else {
+		/* For correct statistics, we need 10 ticks for each measure */
+		min_sampling_rate =
+			MIN_SAMPLING_RATE_RATIO * jiffies_to_usecs(10);
 	}
 
 	return cpufreq_register_governor(&cpufreq_gov_conservative);
