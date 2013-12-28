@@ -23,7 +23,7 @@
 		qcom,chipid = <0x03030000>;
 
 		qcom,initial-pwrlevel = <1>;
-
+		qcom,bus-control;
 		qcom,idle-timeout = <8>; //<HZ/12>
 		qcom,strtstp-sleepwake;
 		qcom,clk-map = <0x0000006>; //KGSL_CLK_CORE | KGSL_CLK_IFACE
