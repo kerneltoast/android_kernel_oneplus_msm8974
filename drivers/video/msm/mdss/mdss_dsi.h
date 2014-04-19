@@ -318,8 +318,6 @@ struct mdss_dsi_ctrl_pdata {
 	struct mutex cmd_mutex;
 
 	bool ulps;
-	struct mutex ulps_lock;
-	unsigned int ulps_ref_count;
 
 	struct dsi_buf tx_buf;
 	struct dsi_buf rx_buf;
@@ -460,4 +458,11 @@ static inline struct mdss_dsi_ctrl_pdata *mdss_dsi_get_ctrl_by_index(int ndx)
 
 	return ctrl_list[ndx];
 }
+
+static inline bool mdss_dsi_ulps_feature_enabled(
+	struct mdss_panel_data *pdata)
+{
+	return pdata->panel_info.ulps_feature_enabled;
+}
+
 #endif /* MDSS_DSI_H */
