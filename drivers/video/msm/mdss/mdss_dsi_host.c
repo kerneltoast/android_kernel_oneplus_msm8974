@@ -1319,6 +1319,7 @@ int mdss_dsi_cmdlist_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 {
 	struct dcs_cmd_req *req;
+	bool ulps_restore = false;
 	int ret = -EINVAL;
 	int rc = 0;
 	mutex_lock(&ctrl->cmd_mutex);
@@ -1345,6 +1346,17 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	 */
 	mdss_bus_scale_set_quota(MDSS_HW_DSI0, SZ_1M, SZ_1M);
 
+	/* If ULPS mode is enabled, then exit ULPS first */
+	if (ctrl->ulps) {
+		ulps_restore = true;
+		ret = mdss_dsi_ulps_config(ctrl, 0);
+		if (ret) {
+			pr_err("%s: failed to exit ULPS mode. rc=%d\n",
+				__func__, ret);
+			goto need_lock;
+		}
+	}
+
 	pr_debug("%s:  from_mdp=%d pid=%d\n", __func__, from_mdp, current->pid);
 	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 1);
 
@@ -1369,6 +1381,16 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	mdss_iommu_ctrl(0);
 	mdss_dsi_clk_ctrl(ctrl, DSI_ALL_CLKS, 0);
 	mdss_bus_scale_set_quota(MDSS_HW_DSI0, 0, 0);
+
+	if (ulps_restore) {
+		ret = mdss_dsi_ulps_config(ctrl, 1);
+		if (ret) {
+			pr_warn("%s: failed to enter ULPS mode. rc=%d\n",
+				__func__, ret);
+			ret = 0;
+		}
+	}
+
 need_lock:
 
 	if (from_mdp) /* from pipe_commit */
