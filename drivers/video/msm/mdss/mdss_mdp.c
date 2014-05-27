@@ -85,6 +85,7 @@ static DEFINE_SPINLOCK(mdp_lock);
 static DEFINE_MUTEX(mdp_clk_lock);
 static DEFINE_MUTEX(bus_bw_lock);
 static DEFINE_MUTEX(mdp_iommu_lock);
+static DEFINE_MUTEX(mdp_fs_ulps_lock);
 
 static struct mdss_panel_intf pan_types[] = {
 	{"dsi", MDSS_PANEL_INTF_DSI},
@@ -2617,8 +2618,9 @@ int mdss_mdp_footswitch_ctrl_ulps(int on, struct device *dev)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int rc = 0;
 
-	pr_debug("called on=%d\n", on);
-	if (on) {
+	mutex_lock(&mdp_fs_ulps_lock);
+	pr_debug("called on=%d, ulps=%d\n", on, mdata->ulps);
+	if (on && mdata->ulps) {
 		pm_runtime_get_sync(dev);
 		rc = mdss_iommu_ctrl(1);
 		if (IS_ERR_VALUE(rc)) {
@@ -2628,10 +2630,11 @@ int mdss_mdp_footswitch_ctrl_ulps(int on, struct device *dev)
 		mdss_hw_init(mdata);
 		mdata->ulps = false;
 		mdss_iommu_ctrl(0);
-	} else {
+	} else if (!on && !mdata->ulps) {
 		mdata->ulps = true;
 		pm_runtime_put_sync(dev);
 	}
+	mutex_unlock(&mdp_fs_ulps_lock);
 
 	return 0;
 }
