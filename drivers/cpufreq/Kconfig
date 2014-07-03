@@ -88,6 +88,12 @@ config CPU_FREQ_DEFAULT_GOV_ONDEMAND
 	  governor. If unsure have a look at the help section of the
 	  driver. Fallback governor will be the performance governor.
 
+config CPU_FREQ_DEFAULT_GOV_SMARTMAX
+	bool "smartmax"
+	select CPU_FREQ_GOV_SMARTMAX
+	help
+	  Use the CPUFreq governor 'smartmax' as default
+
 config CPU_FREQ_DEFAULT_GOV_CONSERVATIVE
 	bool "conservative"
 	select CPU_FREQ_GOV_CONSERVATIVE
@@ -165,6 +171,40 @@ config CPU_FREQ_GOV_ONDEMAND
 	  For details, take a look at linux/Documentation/cpu-freq.
 
 	  If in doubt, say N.
+
+config CPU_FREQ_GOV_SMARTMAX
+	tristate "'smartmax' cpufreq policy governor"
+	select CPU_FREQ_TABLE
+	help
+	  'smartmax' combined ondemand and smartass2
+
+config CPU_FREQ_GOV_SMARTMAX_TEGRA
+	bool "'smartmax' for tegra"
+	depends on CPU_FREQ_GOV_SMARTMAX
+
+config CPU_FREQ_GOV_SMARTMAX_30
+	bool "'smartmax' for 3.0 and 3.1 kernels"
+	depends on CPU_FREQ_GOV_SMARTMAX
+
+config CPU_FREQ_GOV_SMARTMAX_ENRC2B
+	bool "'smartmax' defaults for enrc2b"
+	depends on CPU_FREQ_GOV_SMARTMAX
+
+config CPU_FREQ_GOV_SMARTMAX_PRIMOU
+	bool "'smartmax' defaults for primou"
+	depends on CPU_FREQ_GOV_SMARTMAX
+
+config CPU_FREQ_GOV_SMARTMAX_M7
+	bool "'smartmax' defaults for m7"
+	depends on CPU_FREQ_GOV_SMARTMAX
+
+config CPU_FREQ_GOV_SMARTMAX_APQ8064
+	bool "'smartmax' defaults for apq8064 soc"
+	depends on CPU_FREQ_GOV_SMARTMAX
+
+config CPU_FREQ_GOV_SMARTMAX_MSM8974
+	bool "'smartmax' defaults for msm8974 soc"
+	depends on CPU_FREQ_GOV_SMARTMAX
 
 config CPU_FREQ_GOV_INTERACTIVE
 	tristate "'interactive' cpufreq policy governor"
