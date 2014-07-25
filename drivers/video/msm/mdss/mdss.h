@@ -212,6 +212,8 @@ struct mdss_data_type {
 	u64 ab[MDSS_MAX_HW_BLK];
 	u64 ib[MDSS_MAX_HW_BLK];
 	bool idle_pc;
+
+	atomic_t active_intf_cnt;
 };
 extern struct mdss_data_type *mdss_res;
 
