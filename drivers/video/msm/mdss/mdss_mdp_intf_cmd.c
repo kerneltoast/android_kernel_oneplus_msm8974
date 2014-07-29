@@ -716,6 +716,11 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 	flush_work(&ctx->pp_done_work);
 	ctx->panel_power_state = panel_power_state;
 
+	if (panel_power_state != MDSS_PANEL_POWER_OFF) {
+		pr_debug("%s: panel always on\n", __func__);
+		goto end;
+	}
+
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctx->pp_num,
 				   NULL, NULL);
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP, ctx->pp_num,
@@ -742,6 +747,7 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 
 	MDSS_XLOG(ctl->num, ctx->koff_cnt, ctx->clk_enabled,
 				ctx->rdptr_enabled, XLOG_FUNC_EXIT);
+end:
 	pr_debug("%s:-\n", __func__);
 
 	return 0;
