@@ -788,8 +788,7 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 			mdss_dsi_phy_sw_reset(ctrl->ctrl_base);
 		mdss_dsi_phy_init(pdata);
 
-		mdss_dsi_ctrl_setup(pdata);
-		mdss_dsi_reset(ctrl);
+		mdss_dsi_ctrl_setup(ctrl);
 
 		if (ctrl->ulps) {
 			/*

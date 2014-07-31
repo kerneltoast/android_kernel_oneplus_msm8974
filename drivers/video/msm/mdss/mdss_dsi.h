@@ -359,7 +359,7 @@ void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl,
 				int enable);
 void mdss_dsi_controller_cfg(int enable,
 				struct mdss_panel_data *pdata);
-void mdss_dsi_sw_reset(struct mdss_panel_data *pdata);
+void mdss_dsi_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl, bool restore);
 
 irqreturn_t mdss_dsi_isr(int irq, void *ptr);
 void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
@@ -389,7 +389,7 @@ int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl);
 int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl);
 bool __mdss_dsi_clk_enabled(struct mdss_dsi_ctrl_pdata *ctrl, u8 clk_type);
 void mdss_dsi_reset(struct mdss_dsi_ctrl_pdata *ctrl);
-void mdss_dsi_ctrl_setup(struct mdss_panel_data *pdata);
+void mdss_dsi_ctrl_setup(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_dln0_phy_err(struct mdss_dsi_ctrl_pdata *ctrl);
 
 int mdss_dsi_panel_init(struct device_node *node,
