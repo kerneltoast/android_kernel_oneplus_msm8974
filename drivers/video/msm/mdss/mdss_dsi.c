@@ -593,11 +593,27 @@ static int mdss_dsi_ulps_config_sub(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		}
 
 		/*
+		 * Clear out any phy errors prior to exiting ULPS
+		 * This fixes certain instances where phy does not exit
+		 * ULPS cleanly.
+		 */
+		mdss_dsi_dln0_phy_err(ctrl_pdata);
+
+		/*
 		 * ULPS Exit Request
 		 * Hardware requirement is to wait for at least 1ms
 		 */
 		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x0AC, 0x1F00);
 		usleep(1000);
+
+		/*
+		 * Sometimes when exiting ULPS, it is possible that some DSI
+		 * lanes are not in the stop state which could lead to DSI
+		 * commands not going through. To avoid this, force the lanes
+		 * to be in stop state.
+		 */
+		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x0AC, 0x1F0000);
+
 		MIPI_OUTP(ctrl_pdata->ctrl_base + 0x0AC, 0x0);
 
 		/*
