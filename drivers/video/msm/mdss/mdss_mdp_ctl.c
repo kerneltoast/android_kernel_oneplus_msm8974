@@ -903,8 +903,7 @@ void mdss_mdp_ctl_perf_release_bw(struct mdss_mdp_ctl *ctl)
 	for (i = 0; i < mdata->nctl; i++) {
 		struct mdss_mdp_ctl *ctl = mdata->ctl_off + i;
 
-		if (mdss_mdp_ctl_is_power_on(ctl) &&
-			ctl->is_video_mode)
+		if (mdss_mdp_ctl_is_power_on(ctl))
 			goto exit;
 	}
 
