@@ -142,7 +142,7 @@ extern int tegra_input_boost (struct cpufreq_policy *policy,
 
 #ifdef CONFIG_CPU_FREQ_GOV_SMARTMAX_MSM8974
 #define DEFAULT_SUSPEND_IDEAL_FREQ 422400
-#define DEFAULT_AWAKE_IDEAL_FREQ 1190400
+#define DEFAULT_AWAKE_IDEAL_FREQ 1267200
 #define DEFAULT_RAMP_UP_STEP 200000
 #define DEFAULT_RAMP_DOWN_STEP 200000
 #define DEFAULT_MAX_CPU_LOAD 80
@@ -417,13 +417,6 @@ static inline unsigned int get_timer_delay(void) {
 	return delay;
 }
 
-static inline void dbs_timer_init(struct smartmax_info_s *this_smartmax) {
-	int delay = get_timer_delay();
-
-	INIT_DELAYED_WORK_DEFERRABLE(&this_smartmax->work, do_dbs_timer);
-	queue_delayed_work_on(this_smartmax->cpu, smartmax_wq, &this_smartmax->work, delay);
-}
-
 static inline void dbs_timer_exit(struct smartmax_info_s *this_smartmax) {
 	cancel_delayed_work_sync(&this_smartmax->work);
 }
@@ -473,6 +466,23 @@ inline static void target_freq(struct cpufreq_policy *policy,
 
 	// remember last time we changed frequency
 	this_smartmax->freq_change_time = ktime_to_us(ktime_get());
+}
+
+static inline void dbs_timer_init(struct smartmax_info_s *this_smartmax) {
+	int delay = get_timer_delay();
+
+	if (this_smartmax->cur_policy->cur < boost_freq) {
+		dprintk(SMARTMAX_DEBUG_BOOST, "%s: cpu %d freq %d boosting to %d\n", __func__,
+				this_smartmax->cur_policy->cpu, this_smartmax->cur_policy->cur, boost_freq);
+
+		// if a new cpu went up chances are high that the load is high so it makes
+		// sense to boost that new cpu right away before the first timer event
+		target_freq(this_smartmax->cur_policy, this_smartmax, boost_freq,
+				this_smartmax->cur_policy->cur, CPUFREQ_RELATION_H);
+	}
+
+	INIT_DELAYED_WORK_DEFERRABLE(&this_smartmax->work, do_dbs_timer);
+	queue_delayed_work_on(this_smartmax->cpu, smartmax_wq, &this_smartmax->work, delay);
 }
 
 /* We use the same work function to sale up and down */
