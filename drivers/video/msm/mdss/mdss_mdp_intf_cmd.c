@@ -59,9 +59,15 @@ struct mdss_mdp_cmd_ctx mdss_mdp_cmd_ctx_list[MAX_SESSIONS];
 
 static int mdss_mdp_cmd_do_notifier(struct mdss_mdp_cmd_ctx *ctx);
 
-static bool __mdss_mdp_cmd_panel_power_off(struct mdss_mdp_cmd_ctx *ctx)
+static bool __mdss_mdp_cmd_is_panel_power_off(struct mdss_mdp_cmd_ctx *ctx)
 {
 	return mdss_panel_is_power_off(ctx->panel_power_state);
+}
+
+static bool __mdss_mdp_cmd_is_panel_power_on_interactive(
+		struct mdss_mdp_cmd_ctx *ctx)
+{
+	return mdss_panel_is_power_on_interactive(ctx->panel_power_state);
 }
 
 static inline u32 mdss_mdp_cmd_line_count(struct mdss_mdp_ctl *ctl)
@@ -196,7 +202,7 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int rc;
 
-	if (__mdss_mdp_cmd_panel_power_off(ctx))
+	if (__mdss_mdp_cmd_is_panel_power_off(ctx))
 		return;
 
 	mutex_lock(&ctx->clk_mtx);
@@ -593,10 +599,10 @@ static int mdss_mdp_cmd_set_partial_roi(struct mdss_mdp_ctl *ctl)
 	return rc;
 }
 
-int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
+static int mdss_mdp_cmd_panel_on(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_cmd_ctx *ctx, *sctx = NULL;
-	int rc;
+	int rc = 0;
 
 	ctx = (struct mdss_mdp_cmd_ctx *) ctl->priv_data;
 	if (!ctx) {
@@ -604,10 +610,7 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 		return -ENODEV;
 	}
 
-	mdss_mdp_ctl_perf_set_transaction_status(ctl,
-		PERF_HW_MDP_STATE, PERF_STATUS_BUSY);
-
-	if (__mdss_mdp_cmd_panel_power_off(ctx)) {
+	if (!__mdss_mdp_cmd_is_panel_power_on_interactive(ctx)) {
 		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_UNBLANK, NULL);
 		WARN(rc, "intf %d unblank error (%d)\n", ctl->intf_num, rc);
 
@@ -619,7 +622,34 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 		mdss_mdp_ctl_intf_event(ctl,
 				MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
 				(void *)&ctx->recovery);
+	} else {
+		pr_err("%s: Panel already on\n", __func__);
 	}
+
+	return rc;
+}
+
+int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
+{
+	struct mdss_mdp_cmd_ctx *ctx;
+	unsigned long flags;
+
+	ctx = (struct mdss_mdp_cmd_ctx *) ctl->priv_data;
+	if (!ctx) {
+		pr_err("invalid ctx\n");
+		return -ENODEV;
+	}
+
+	mdss_mdp_ctl_perf_set_transaction_status(ctl,
+		PERF_HW_MDP_STATE, PERF_STATUS_BUSY);
+
+	/*
+	 * Turn on the panel, if not already. This is because the panel is
+	 * turned on only when we send the first frame and not during cmd
+	 * start. This is to ensure that no artifacts are seen on the panel.
+	 */
+	if (__mdss_mdp_cmd_is_panel_power_off(ctx))
+		mdss_mdp_cmd_panel_on(ctl);
 
 	MDSS_XLOG(ctl->num, ctl->roi.x, ctl->roi.y, ctl->roi.w,
 						ctl->roi.h);
@@ -679,6 +709,13 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 		return -ENODEV;
 	}
 
+	/*
+	 * If the panel will be left on, then we do not need to turn off
+	 * interface clocks since we may continue to get display updates.
+	 */
+	if (mdss_panel_is_power_on(panel_power_state))
+		return 0;
+
 	list_for_each_entry_safe(handle, tmp, &ctx->vsync_handlers, list)
 		mdss_mdp_cmd_remove_vsync_handler(ctl, handle);
 	MDSS_XLOG(ctl->num, ctx->koff_cnt, ctx->clk_enabled,
@@ -714,12 +751,7 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 	turn_off_panel = ctx->panel_power_state;
 	mdss_mdp_cmd_clk_off(ctx);
 	flush_work(&ctx->pp_done_work);
-	ctx->panel_power_state = panel_power_state;
-
-	if (panel_power_state != MDSS_PANEL_POWER_OFF) {
-		pr_debug("%s: panel always on\n", __func__);
-		goto end;
-	}
+	mdss_mdp_cmd_tearcheck_setup(ctl);
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctx->pp_num,
 				   NULL, NULL);
@@ -736,6 +768,8 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 		WARN(ret, "intf %d unblank error (%d)\n", ctl->intf_num, ret);
 	}
 
+	ctx->panel_power_state = panel_power_state;
+
 	memset(ctx, 0, sizeof(*ctx));
 	ctl->priv_data = NULL;
 
@@ -747,8 +781,8 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 
 	MDSS_XLOG(ctl->num, ctx->koff_cnt, ctx->clk_enabled,
 				ctx->rdptr_enabled, XLOG_FUNC_EXIT);
-end:
 	pr_debug("%s:-\n", __func__);
+
 
 	return 0;
 }
