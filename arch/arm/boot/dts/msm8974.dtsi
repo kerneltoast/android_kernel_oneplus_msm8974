@@ -2186,6 +2186,7 @@
 
         qcom,qcrypto1@fd440000 {
 		compatible = "qcom,qcrypto";
+		status = "disabled";
 		reg = <0xfd440000 0x20000>,
 		      <0xfd444000 0x1b000>;
 		reg-names = "crypto-base","crypto-bam-base";
