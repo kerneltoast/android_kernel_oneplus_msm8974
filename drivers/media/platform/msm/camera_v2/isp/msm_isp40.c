@@ -1201,9 +1201,14 @@ static long msm_vfe40_axi_halt(struct vfe_device *vfe_dev,
 	msm_camera_io_w(0xFEFFFEFF, vfe_dev->vfe_base + 0x34);
 	msm_camera_io_w(0x1, vfe_dev->vfe_base + 0x24);
 	if (blocking) {
-		init_completion(&vfe_dev->halt_complete);
 		/* Halt AXI Bus Bridge */
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x2C0);
+		while (axi_busy_flag) {
+			if (msm_camera_io_r(
+				vfe_dev->vfe_base + 0x2E4) & 0x1)
+				axi_busy_flag = false;
+		}
+		msm_camera_io_w_mb(0x0, vfe_dev->vfe_base + 0x2C0);
 		atomic_set(&vfe_dev->error_info.overflow_state, NO_OVERFLOW);
 		while (axi_busy_flag) {
 			if (msm_camera_io_r(

@@ -1308,6 +1308,7 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
 	long rc;
+	int retry_times = 5;
 	ISP_DBG("%s\n", __func__);
 
 	mutex_lock(&vfe_dev->realtime_mutex);
@@ -1330,6 +1331,16 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	atomic_set(&vfe_dev->error_info.overflow_state, NO_OVERFLOW);
 	rc = vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev,
 		ISP_RST_HARD, 1);
+/*likelong 2015.3.16 reset isp again if reset failed*/
+#ifdef VENDOR_EDIT
+	while((rc <= 0)&&retry_times)
+	{
+		pr_err("%s: reset isp failed, try again\n", __func__);
+		rc = vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev,
+		ISP_RST_HARD, 1);
+		retry_times --;
+	}
+#endif
 	if (rc <= 0) {
 		pr_err("%s: reset timeout\n", __func__);
 		mutex_unlock(&vfe_dev->core_mutex);
