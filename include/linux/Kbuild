@@ -20,7 +20,6 @@ header-y += netfilter_ipv6/
 header-y += usb/
 header-y += wimax/
 header-y += mfd/
-header-y += nfc/
 
 objhdr-y += version.h
 
@@ -459,3 +458,5 @@ header-y += avtimer.h
 header-y += msm_ipa.h
 header-y += msm_pft.h
 header-y += msm_thermal_ioctl.h
+
+header-y += pn544.h

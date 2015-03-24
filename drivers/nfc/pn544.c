@@ -26,7 +26,7 @@
 #include <linux/gpio.h>
 #include <linux/miscdevice.h>
 #include <linux/spinlock.h>
-#include <linux/nfc/pn544.h>
+#include <linux/pn544.h>
 #include <linux/regulator/consumer.h>
 /*OPPO yuyi 2013-10-24 add begin for nfc_devinfo*/
 #include <linux/pcb_version.h>
