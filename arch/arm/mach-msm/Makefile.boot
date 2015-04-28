@@ -47,6 +47,9 @@ endif
 
 # MSM8974
    zreladdr-$(CONFIG_ARCH_MSM8974)	:= 0x00008000
+	ifeq ($(CONFIG_OPPO_MSM_14001),y)
+	dtb-$(CONFIG_ARCH_MSM8974)	+= msm8974pro-ac-pm8941-14001.dtb
+	endif
 
 # APQ8084
    zreladdr-$(CONFIG_ARCH_APQ8084)	:= 0x00008000
