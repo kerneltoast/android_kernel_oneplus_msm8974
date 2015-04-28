@@ -26,6 +26,7 @@
 		compatible = "qcom,mdss-dsi-panel";
 		status = "ok";
 		qcom,cont-splash-enabled;
+		qcom,ulps-enabled;
 		qcom,mdss-dsi-panel-name = "jdi 1080p cmd mode dsi panel";
 		qcom,mdss-dsi-panel-manufacture = "JDI";
 		qcom,mdss-dsi-panel-version = "R63417";
