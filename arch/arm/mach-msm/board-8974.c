@@ -642,7 +642,33 @@ board_LCD_id_index_init();
 	/* OPPO 2013.07.09 hewei add end */
 #endif //CONFIG_VENDOR_EDIT	
 //#ifdef VENDOR_EDIT
-	
+
+#ifdef CONFIG_VENDOR_EDIT
+	rc = gpio_request(28, "disp_esd");
+	if (rc) {
+		pr_err("yanghai request ESD gpio failed, rc=%d\n",
+		       rc);
+		gpio_free(28);
+		return;
+	}
+	rc = gpio_tlmm_config(GPIO_CFG(
+			28, 0,
+			GPIO_CFG_INPUT,
+			GPIO_CFG_PULL_DOWN,
+			GPIO_CFG_2MA),
+			GPIO_CFG_ENABLE);
+	if (rc) {
+		pr_err("%s: unable to ESD config tlmm = 28\n", __func__);
+		gpio_free(28);
+		return;
+	}
+
+	rc = gpio_direction_input(28);
+	if (rc) {
+		pr_err("set_direction for ESD GPIO failed, rc=%d\n", rc);
+		gpio_free(28);
+	}
+#endif
 }
 
 #ifdef VENDOR_EDIT

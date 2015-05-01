@@ -1656,41 +1656,6 @@ int dsi_panel_device_register(struct device_node *pan_node,
 					ctrl_pdata->disp_te_gpio);
 	}
 
-#ifdef VENDOR_EDIT
-//##############################################################
-rc = gpio_request(28, "disp_esd");
-		if (rc) {
-			pr_err("yanghai request ESD gpio failed, rc=%d\n",
-			       rc);
-			gpio_free(28);
-			return -ENODEV;
-		}
-		rc = gpio_tlmm_config(GPIO_CFG(
-				28, 0,
-				GPIO_CFG_INPUT,
-				GPIO_CFG_PULL_DOWN,
-				GPIO_CFG_2MA),
-				GPIO_CFG_ENABLE);
-
-		if (rc) {
-			pr_err("%s: unable to ESD config tlmm = 28\n",
-				__func__);
-			gpio_free(28);
-			return -ENODEV;
-		}
-
-		rc = gpio_direction_input(28);
-		if (rc) {
-			pr_err("set_direction for ESD GPIO failed, rc=%d\n",
-			       rc);
-			gpio_free(28);
-			return -ENODEV;
-		}
-			printk(KERN_ERR"TE check test11\n");
-#endif
-
-
-
 //###########################################################
 	ctrl_pdata->rst_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
 			 "qcom,platform-reset-gpio", 0);
