@@ -1,1 +1,0 @@
-obj-$(CONFIG_CAMERA_MOTOR)		+= camera-motor.o
