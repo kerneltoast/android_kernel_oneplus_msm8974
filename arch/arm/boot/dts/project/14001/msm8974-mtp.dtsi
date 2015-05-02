@@ -10,7 +10,9 @@
  * GNU General Public License for more details.
  */
 
-/include/ "msm8974-camera-sensor-mtp.dtsi"
+/include/ "msm8974-oppo-camera.dtsi"
+/include/ "msm8974-oppo-camera-sensor.dtsi"
+/include/ "msm8974-a0001-camera-sensor.dtsi"
 /include/ "msm8974-leds.dtsi"
 /include/ "dsi-panel-jdi-1080p-cmd.dtsi"
 /include/ "dsi-panel-jdi-1080p-video.dtsi"

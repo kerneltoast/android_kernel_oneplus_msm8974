@@ -300,8 +300,13 @@ config OPPO_DEVICE_IFNO
 	  This is the oppo device info show function, open it will enable the function.
 #endif /* VENDOR_EDIT */
 
+config MACH_OPPO
+	bool
+	depends on ARCH_MSM
+
 config ARCH_MSM8974
 	bool "MSM8974"
+	select MACH_OPPO
 	select ARCH_MSM_KRAITMP
 	select GPIO_MSM_V3
 	select ARM_GIC
