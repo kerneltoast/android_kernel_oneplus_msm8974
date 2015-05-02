@@ -392,6 +392,9 @@
 		qcom,model = "msm8974-taiko-mtp-snd-card";
 		qcom,cdc-micbias2-headset-only;
 		qcom,mbhc-audio-jack-type = "4-pole-jack";
+		qcom,hpmic-switch-gpio = <&msmgpio 87 0>;
+		enable_spk-gpio = <&msmgpio 73 0>;
+		cdc_spk-supply = <&pm8941_boost>;
 
 		qcom,audio-routing =
 			"AIF4 VI", "MCLK",
