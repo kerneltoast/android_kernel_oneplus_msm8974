@@ -99,58 +99,12 @@ static struct notifier_block panic_blk = {
 	.notifier_call	= panic_prep_restart,
 };
 
-#define __LOG_BUF_LEN	(1 << CONFIG_LOG_BUF_SHIFT)
-extern char __log_buf[__LOG_BUF_LEN];
-
-typedef unsigned int	uint32;
-
-struct boot_shared_imem_cookie_type
-{
-  /* First 8 bytes are two dload magic numbers */
-  uint32 dload_magic_1;
-  uint32 dload_magic_2;
-
-  /* Magic number which indicates boot shared imem has been initialized
-     and the content is valid.*/ 
-  uint32 shared_imem_magic;
-
-  /* Magic number for UEFI ram dump, if this cookie is set along with dload magic numbers,
-     we don't enter dload mode but continue to boot. This cookie should only be set by UEFI*/
-  uint32 uefi_ram_dump_magic;
-
-  /* Pointer that points to etb ram dump buffer, should only be set by HLOS */
-  uint32 etb_buf_addr;
-
-  /* Region where HLOS will write the l2 cache dump buffer start address */
-  uint32 *l2_cache_dump_buff_ptr;
-
-  uint32 ddr_training_cookie;
-
-  /* Cookie that will be used to sync with RPM */
-  uint32 rpm_sync_cookie;
-
-  /* Abnormal reset cookie used by UEFI */
-  uint32 abnormal_reset_occurred;
-
-  /* Reset Status Register */
-  uint32 reset_status_register;
-
-  uint32 kernel_log_buff_start;
-  uint32 kernel_log_buff_size;
-
-  /* Please add new cookie here, do NOT modify or rearrange the existing cookies*/
-};
-
-
 static void set_dload_mode(int on)
 {
 	if (dload_mode_addr) {
 		__raw_writel(on ? 0xE47B337D : 0, dload_mode_addr);
 		__raw_writel(on ? 0xCE14091A : 0,
 		       dload_mode_addr + sizeof(unsigned int));
-		//Add this to value for dump KMSG.bin
-		__raw_writel(on ? (virt_to_phys(__log_buf)) : 0, dload_mode_addr + sizeof(unsigned int) *10 );
-		__raw_writel(on ? __LOG_BUF_LEN : 0, dload_mode_addr + sizeof(unsigned int) *11 );
 		mb();
 		dload_mode_enabled = on;
 	}

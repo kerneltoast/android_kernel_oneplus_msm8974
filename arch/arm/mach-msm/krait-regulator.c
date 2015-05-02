@@ -35,8 +35,6 @@
 
 #include "spm.h"
 #include "pm.h"
-#include <mach/msm_rtb.h> /* qcom patch, CASE ID: 01694672, Zhilong.Zhang@OnlineRd.Driver, 2014/09/19, Modify for solve the problem of Kernel NULL pointer */
-
 
 /*
  *                   supply
@@ -829,8 +827,7 @@ static int configure_ldo_or_hs_all(struct krait_power_vreg *from, int vmax)
 	return rc;
 }
 
-//#define SLEW_RATE 2395
-#define SLEW_RATE 1500 /* qcom patch, CASE ID: 01694672, Zhilong.Zhang@OnlineRd.Driver, 2014/09/19, Modify for solve the problem of Kernel NULL pointer */
+#define SLEW_RATE 2395
 static int krait_voltage_increase(struct krait_power_vreg *from,
 							int vmax)
 {
