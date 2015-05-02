@@ -273,7 +273,9 @@ obj-$(CONFIG_ARCH_MSM9615) += board-9615.o devices-9615.o board-9615-regulator.o
 obj-$(CONFIG_ARCH_MSM9615) += clock-local.o clock-9615.o acpuclock-9615.o clock-rpm.o clock-pll.o
 obj-$(CONFIG_ARCH_APQ8084) += board-8084.o board-8084-gpiomux.o
 obj-$(CONFIG_ARCH_APQ8084) += clock-8084.o
+ifndef CONFIG_MACH_OPPO
 obj-$(CONFIG_ARCH_MSM8974) += board-8974.o board-8974-gpiomux.o
+endif
 obj-$(CONFIG_ARCH_MSM8974) += clock-krait-8974.o
 obj-$(CONFIG_ARCH_MSM8974) += clock-local2.o clock-pll.o clock-8974.o clock-rpm.o clock-voter.o clock-mdss-8974.o
 obj-$(CONFIG_ARCH_MSM8974) += gdsc.o
@@ -334,9 +336,7 @@ obj-$(CONFIG_ARCH_MSM8960)	+= devices-iommu.o
 obj-$(CONFIG_ARCH_MSM8930)	+= devices-iommu.o
 obj-$(CONFIG_ARCH_MSM8064)	+= devices-iommu.o
 endif
-ifdef ($(OPPO_BUILD_TYPE),release)
-ccflags-y += -DRELEASE_DOWNLOAD_MODE_SET
-endif
+
 obj-$(CONFIG_MSM_EVENT_TIMER)		+= event_timer.o
 
 ifdef CONFIG_VCM
@@ -381,10 +381,6 @@ obj-$(CONFIG_ARCH_MSM7X30) += board-msm7x30-regulator.o
 obj-$(CONFIG_ARCH_MSM7X27A) += board-msm7x27a-regulator.o
 endif
 
-#ifdef VENDOR_EDIT 
-#Zhilong.Zhang@OnlineRd.Driver, 2013/10/04, Add for OPPO trace
-obj-$(CONFIG_OPPO_DEBUG_ASSERT)	+=  oppo_trace.o
-#endif /* VENDOR_EDIT */
 obj-$(CONFIG_ARCH_MSM8960) += mdm2.o mdm_common.o
 obj-$(CONFIG_MSM_RTB) += msm_rtb.o
 obj-$(CONFIG_MSM_CACHE_ERP) += cache_erp.o
@@ -408,6 +404,8 @@ obj-$(CONFIG_MSM_USE_USER_ACCESSIBLE_TIMERS) += timer_page.o
 ifdef CONFIG_MSM_CPR
 obj-$(CONFIG_DEBUG_FS) += msm_cpr-debug.o
 endif
+
+obj-$(CONFIG_MACH_OPPO) += oppo/
 obj-$(CONFIG_MSM_FIQ) += msm7k_fiq.o
 obj-$(CONFIG_MSM_FIQ) += msm7k_fiq_handler.o
 
@@ -425,8 +423,3 @@ obj-$(CONFIG_WALL_CLK) += wallclk.o
 obj-$(CONFIG_WALL_CLK_SYSFS) += wallclk_sysfs.o
 obj-$(CONFIG_ARCH_RANDOM) += early_random.o
 obj-$(CONFIG_PERFMAP) += perfmap.o
-#ifdef VENDOR_EDIT 
-#Wanjc@OnlineRd.Driver, 2013/10/23, Add for OPPO device info
-obj-$(CONFIG_OPPO_DEVICE_IFNO)	+=  device_info.o
-#endif /* VENDOR_EDIT */
-

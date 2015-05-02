@@ -1,0 +1,34 @@
+config MACH_OPPO
+	bool
+	depends on ARCH_MSM
+
+config OPPO_MSM_14001
+	bool "OPPO_MSM_14001"
+
+config MACH_OPPO_MSM8974
+	depends on ARCH_MSM8974
+	select MACH_OPPO
+	bool "Oppo MSM8974 Platform"
+	help
+	  Support for Oppo MSM8974 device variants.
+
+menu "Oppo board selection"
+
+config MACH_FIND7OP
+	select MACH_OPPO_MSM8974
+	select OPPO_MSM_14001
+	bool "Oneplus"
+	help
+	  Support for the Oneplus variant
+
+endmenu
+
+menu "Oppo specific options"
+
+config OPPO_DEVICE_INFO
+	bool "Oppo device info driver"
+	default y if MACH_OPPO
+	help
+	  Say Y to enable Oppo device info driver
+
+endmenu
