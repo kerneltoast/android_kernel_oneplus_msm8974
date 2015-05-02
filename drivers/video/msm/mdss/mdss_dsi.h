@@ -271,10 +271,6 @@ struct mdss_dsi_ctrl_pdata {
 	int irq_cnt;
 	int rst_gpio;
 	int disp_en_gpio;
-#ifdef VENDOR_EDIT
-/* liuyan@Onlinerd.driver, 2014/08/10  Add for 14021 lcd enable */
-	int disp_en_gpio76;	
-#endif /*CONFIG_VENDOR_EDIT*/
 	int disp_te_gpio;
 	int mode_gpio;
 	int disp_te_gpio_requested;
@@ -315,7 +311,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct mutex cmd_mutex;
 
 	bool ulps;
-	int index;
+
 	struct dsi_buf tx_buf;
 	struct dsi_buf rx_buf;
 	struct dsi_buf status_buf;
