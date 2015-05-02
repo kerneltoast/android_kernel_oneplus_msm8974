@@ -5,6 +5,9 @@ config MACH_OPPO
 config OPPO_MSM_14001
 	bool "OPPO_MSM_14001"
 
+config OPPO_DEVICE_FIND7OP
+	bool "OPPO_DEVICE_FIND7OP"
+
 config MACH_OPPO_MSM8974
 	depends on ARCH_MSM8974
 	select MACH_OPPO
@@ -17,6 +20,7 @@ menu "Oppo board selection"
 config MACH_FIND7OP
 	select MACH_OPPO_MSM8974
 	select OPPO_MSM_14001
+	select OPPO_DEVICE_FIND7OP
 	bool "Oneplus"
 	help
 	  Support for the Oneplus variant
