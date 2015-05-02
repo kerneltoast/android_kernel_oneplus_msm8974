@@ -27,22 +27,13 @@
 #include "synaptics_dsx.h"
 #include "synaptics_dsx_i2c.h"
 #include "synaptics_firmware_youngfast.h"
-#if defined CONFIG_OPPO_MSM_14001  //for 14001's wintek tp
+#ifdef CONFIG_MACH_FIND7OP  //for 14001's wintek tp
 #include "synaptics_firmware_tpk_14001.h"
-#include "synaptics_firmware_tpk_find7s.h"
 #include "synaptics_firmware_wintek_14001.h"
-#elif defined CONFIG_OPPO_MSM_FIND7
+#else
 #include "synaptics_firmware_tpk.h"
 #include "synaptics_firmware_tpk_find7s.h"
 #include "synaptics_firmware_wintek.h"
-#elif defined CONFIG_OPPO_MSM_FIND7WX
-#include "synaptics_firmware_tpk.h"
-#include "synaptics_firmware_tpk_find7s.h"
-#include "synaptics_firmware_wintek.h"
-#elif defined CONFIG_OPPO_MSM_14021
-#include "synaptics_firmware_tpk_n3.h"
-#include "synaptics_firmware_tpk_find7s.h"
-#include "synaptics_firmware_wintek_n3.h"
 #endif
 #include <linux/proc_fs.h>
 #include <asm/uaccess.h>
@@ -52,7 +43,7 @@
 
 #define FW_IMAGE_NAME "synaptics/startup_fw_update.img"
 #define DO_STARTUP_FW_UPDATE
-#define STARTUP_FW_UPDATE_DELAY_MS 5 /*200 ms */
+#define STARTUP_FW_UPDATE_DELAY_MS 200 /* ms */
 #define FORCE_UPDATE false
 #define DO_LOCKDOWN false
 
@@ -1423,7 +1414,7 @@ static int fwu_start_reflash(void)
 	default:
 		goto exit;
 	}
-	printk("synap %s: fw update succeed!\n", __func__);
+
 	if (retval < 0) {
 		dev_err(&fwu->rmi4_data->i2c_client->dev,
 				"%s: Failed to do reflash\n",
@@ -1439,6 +1430,7 @@ exit:
 	//pr_notice("%s: End of reflash process\n", __func__);
 
 	fwu->rmi4_data->stay_awake = false;
+	fwu->ext_data_source = NULL;
 
 	return retval;
 }
@@ -1451,14 +1443,12 @@ int synaptics_rmi4_get_firmware_version(int vendor_id) {
 		return FIRMWARE_YOUNGFAST_VERSION ;
 	}
 	else if(vendor_id == TP_VENDOR_TPK) {
-#ifdef CONFIG_OPPO_MSM_14021
-        return FIRMWARE_TPK_VERSION;
-#else
-		if (get_pcb_version() >= HW_VERSION__21) 
+#ifndef CONFIG_MACH_FIND7OP
+		if (get_pcb_version() >= HW_VERSION__21)
 			return FIRMWARE_TPK_FIND7S_VERSION;
 		else
-			return FIRMWARE_TPK_VERSION;
 #endif
+			return FIRMWARE_TPK_VERSION;
 	}
 	else if(vendor_id == TP_VENDOR_TRULY) {
 		return 0;
@@ -1557,16 +1547,13 @@ static unsigned char* fwu_rmi4_get_firmware_data(void) {
 	else if(vendor_id == TP_VENDOR_YOUNGFAST)
 		firmwaredata = (unsigned char*)Syna_Firmware_Data_youngfast ;
 	else if(vendor_id == TP_VENDOR_TPK) {
-#if defined(CONFIG_OPPO_MSM_14001)|| defined(CONFIG_OPPO_MSM_FIND7) ||defined(CONFIG_OPPO_MSM_FIND7WX)
+#ifndef CONFIG_MACH_FIND7OP
 		if (get_pcb_version() >= HW_VERSION__21)
-			firmwaredata = (unsigned char*)Syna_Firmware_Data_tpk_find7s ;
+			firmwaredata = (unsigned char*)Syna_Firmware_Data_tpk_find7s;
 		else
-			firmwaredata = (unsigned char*)Syna_Firmware_Data_tpk ;
-#elif defined(CONFIG_OPPO_MSM_14021)
-		firmwaredata = (unsigned char*)Syna_Firmware_Data_tpk ;
 #endif
-	}
-	else if(vendor_id == TP_VENDOR_WINTEK)
+			firmwaredata = (unsigned char*)Syna_Firmware_Data_tpk ;
+	} else if(vendor_id == TP_VENDOR_WINTEK)
 		firmwaredata = (unsigned char*)Syna_Firmware_Data_Wintek;
 	
 
@@ -1574,32 +1561,11 @@ static unsigned char* fwu_rmi4_get_firmware_data(void) {
 
 	
 }
-static void fwu_update_recheck(struct synaptics_rmi4_data *rmi4_data)
-{
-	int retval;
-	//char command = 1;
-	char data = 0;
-	/*
-	retval = rmi4_data->i2c_write(rmi4_data,
-			rmi4_data->f01_cmd_base_addr,&command,1);
-			
-	msleep(rmi4_data->board->reset_delay_ms);//reset
-	*/
-	retval = rmi4_data->i2c_read(rmi4_data,
-			rmi4_data->f01_data_base_addr,&data,1);
-	printk("synap base address:0x%x\n",data);
-	if (data && 0x04)
-	{
-		fwu->force_update = 1;
-		retval = synaptics_fw_updater(fwu_rmi4_get_firmware_data());
-		printk("synap force update ok!\n");
-	}
-}
+
 static void fwu_startup_fw_update_work(struct work_struct *work)
 {
 	unsigned char* firmwaredata = 0;
-	
-	printk("synap %s start!\n",__func__);
+
 	firmwaredata = fwu_rmi4_get_firmware_data() ;
 	if(!firmwaredata) {
 		printk("[syna]can't find firmware data\n");
@@ -1610,12 +1576,10 @@ static void fwu_startup_fw_update_work(struct work_struct *work)
 		
 	synaptics_fw_updater(firmwaredata);
 
-	fwu_update_recheck(fwu->rmi4_data);
-		
 	fwu->image_name[0] = 0;
 
 	fwu->rmi4_data->bcontinue = 1 ;
-	printk("synap %s end!\n",__func__);
+
 	return;
 }
 
@@ -1787,7 +1751,9 @@ static ssize_t fwu_sysfs_image_size_store(struct device *dev,
 	fwu->image_size = size;
 	fwu->data_pos = 0;
 
-	kfree(fwu->ext_data_source);
+	if (fwu->ext_data_source) {
+		kfree(fwu->ext_data_source);
+	}
 	fwu->ext_data_source = kzalloc(fwu->image_size, GFP_KERNEL);
 	if (!fwu->ext_data_source) {
 		dev_err(&rmi4_data->i2c_client->dev,
@@ -2109,12 +2075,11 @@ int rmi4_fw_module_init(bool insert) {
 
 static int __init rmi4_fw_update_module_init(void)
 {
-	/* lifeng dele: duplicate init,first init in rmi4_fw_module_init()
 	synaptics_rmi4_new_function(RMI_FW_UPDATER, true,
 			synaptics_rmi4_fwu_init,
 			synaptics_rmi4_fwu_remove,
 			synaptics_rmi4_fwu_attn);
-	*/
+
     init_synaptics_proc();
 
 	return 0;

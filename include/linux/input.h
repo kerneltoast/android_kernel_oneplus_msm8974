@@ -199,6 +199,8 @@ struct input_keymap_entry {
 #define SYN_CONFIG		1
 #define SYN_MT_REPORT		2
 #define SYN_DROPPED		3
+#define SYN_TIME_SEC		4
+#define SYN_TIME_NSEC		5
 
 /*
  * Keys and buttons
@@ -470,6 +472,15 @@ struct input_keymap_entry {
 #define KEY_RFKILL		247	/* Key that controls all radios */
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
+
+#ifdef CONFIG_MACH_OPPO
+#define KEY_GESTURE_CIRCLE	250
+#define KEY_GESTURE_SWIPE_DOWN	251
+#define KEY_GESTURE_V		252
+#define KEY_GESTURE_LTR		253
+#define KEY_GESTURE_GTR		254
+#define KEY_DOUBLE_TAP		255
+#endif
 
 /* Code 255 is reserved for special needs of AT keyboard driver */
 
