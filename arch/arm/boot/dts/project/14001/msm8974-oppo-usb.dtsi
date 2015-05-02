@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,11 +10,6 @@
  * GNU General Public License for more details.
  */
 
-/include/ "msm8974pro-pm8941.dtsi"
-
-/ {
-	qcom,msm-id = <194 0x10000>,
-		      <210 0x10000>,
-		      <213 0x10000>,
-		      <216 0x10000>;
+&usb_otg {
+	qcom,hsusb-otg-phy-init-seq = <0x44 0x80 0x3F 0x81 0x4D 0x82 0x13 0x83 0xffffffff>;
 };

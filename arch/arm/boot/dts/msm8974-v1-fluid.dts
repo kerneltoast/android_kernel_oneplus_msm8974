@@ -24,11 +24,9 @@
 
 };
 
-/*wangjc enable charger*/
-/*&pm8941_chg {
+&pm8941_chg {
 	qcom,charging-disabled;
-};*/
-/*wangjc end*/
+};
 
 &sdcc1 {
 	qcom,bus-width = <4>;

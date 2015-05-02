@@ -10,14 +10,11 @@
  * GNU General Public License for more details.
  */
 
-&pm8941_lsid0 {
-	pm8941_clkdiv1: clkdiv@5b00 {
-		qcom,cxo-div = <2>;
-	};
-
-	pm8941_clkdiv2: clkdiv@5c00 {
-	};
-
-	pm8941_clkdiv3: clkdiv@5d00 {
+&pm8941_lsid1 {
+	qcom,vibrator@c000 {
+		qcom,vib-timeout-ms = <15000>;
+		qcom,vib-vtg-level-mV = <3100>;
+		qcom,vib-vtg-min-mV = <1900>;
+		status = "okay";
 	};
 };
