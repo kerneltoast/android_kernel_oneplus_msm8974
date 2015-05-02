@@ -23,13 +23,14 @@
 #include <linux/err.h>
 
 #include "mdss_dsi.h"
-#ifdef CONFIG_OPPO_MSM_14001
-extern  int lm3630_bank_a_update_status(u32 bl_level);
-#endif
 
 #define DT_CMD_HDR 6
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
+
+#ifdef CONFIG_OPPO_MSM_14001
+extern  int lm3630_bank_a_update_status(u32 bl_level);
+#endif
 
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 {
@@ -369,11 +370,6 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-#ifdef CONFIG_OPPO_MSM_14001
-	lm3630_bank_a_update_status(bl_level);
-	return;
-#endif
-
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
@@ -393,7 +389,11 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 
 	switch (ctrl_pdata->bklt_ctrl) {
 	case BL_WLED:
+#ifdef CONFIG_OPPO_MSM_14001
+		lm3630_bank_a_update_status(bl_level);
+#else
 		led_trigger_event(bl_led_trigger, bl_level);
+#endif
 		break;
 	case BL_PWM:
 		mdss_dsi_panel_bklt_pwm(ctrl_pdata, bl_level);
