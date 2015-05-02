@@ -601,7 +601,7 @@ static int mdss_mdp_cmd_set_partial_roi(struct mdss_mdp_ctl *ctl)
 
 static int mdss_mdp_cmd_panel_on(struct mdss_mdp_ctl *ctl)
 {
-	struct mdss_mdp_cmd_ctx *ctx, *sctx = NULL;
+	struct mdss_mdp_cmd_ctx *ctx;
 	int rc = 0;
 
 	ctx = (struct mdss_mdp_cmd_ctx *) ctl->priv_data;
@@ -632,7 +632,6 @@ static int mdss_mdp_cmd_panel_on(struct mdss_mdp_ctl *ctl)
 int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 {
 	struct mdss_mdp_cmd_ctx *ctx;
-	unsigned long flags;
 
 	ctx = (struct mdss_mdp_cmd_ctx *) ctl->priv_data;
 	if (!ctx) {
@@ -655,8 +654,6 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 						ctl->roi.h);
 
 	atomic_inc(&ctx->koff_cnt);
-	if (sctx)
-		atomic_inc(&sctx->koff_cnt);
 
 	trace_mdp_cmd_kickoff(ctl->num, atomic_read(&ctx->koff_cnt));
 
