@@ -195,7 +195,7 @@ static struct dsi_cmd_desc user_defined_find7_gamma[] = {
 
 void send_user_defined_gamma(char * buf)
 {
-	int i=0,len,limt_len,temp;
+	int i=0,len,limt_len,temp=0;
 	char temp_buf[100];
 	char * p1,*p2,*user_gamma=NULL;
 	struct dcs_cmd_req cmdreq;
