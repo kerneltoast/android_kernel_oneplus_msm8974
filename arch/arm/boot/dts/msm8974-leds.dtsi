@@ -12,8 +12,29 @@
  */
 
 &pm8941_lsid1 {
+
+	qcom,leds@d800 {
+		status = "disabled";
+		qcom,wled_0 {
+			label = "wled";
+			linux,name = "wled:backlight";
+			linux,default-trigger = "bkl-trigger";
+			qcom,cs-out-en;
+			qcom,op-fdbck = <1>;
+			qcom,default-state = "on";
+			qcom,max-current = <25>;
+			qcom,ctrl-delay-us = <0>;
+			qcom,boost-curr-lim = <5>;
+			qcom,cp-sel = <0>;
+			qcom,switch-freq = <11>;
+			qcom,ovp-val = <2>;
+			qcom,num-strings = <3>;
+			qcom,id = <0>;
+		};
+	};
+
 	qcom,leds@d000 {
-		status = "okay";
+		status = "disabled";
 		qcom,rgb_0 {
 			label = "rgb";
 			linux,name = "led:rgb_red";
@@ -74,7 +95,7 @@
 				"flash0_trigger";
 			qcom,id = <1>;
 			linux,name = "led:flash_0";
-			qcom,current = <625>;
+			qcom,current = <560>;
 		};
 
 		pm8941_flash1: qcom,flash_1 {
@@ -90,7 +111,7 @@
 			label = "flash";
 			qcom,id = <2>;
 			linux,name = "led:flash_1";
-			qcom,current = <625>;
+			qcom,current = <560>;
 		};
 
 		pm8941_torch: qcom,flash_torch {
@@ -103,7 +124,7 @@
 			label = "flash";
 			qcom,id = <2>;
 			linux,name = "led:flash_torch";
-			qcom,current = <200>;
+			qcom,current = <53>;
 			qcom,torch-enable;
 		};
 	};
@@ -123,18 +144,22 @@
 	qcom,leds@d700 {
 		status = "disabled";
 	};
-
+/*VENDOR_EDIT*/
+/*OPPO yuyi 2013-09-27 modify begin for button-backlight*/		
 	qcom,leds@e200 {
 		status = "okay";
 
 		qcom,kpdbl1 {
 			label = "kpdbl";
-			linux,name = "kpdbl-pwm-1";
+			linux,name = "button-backlight";
 			qcom,mode = "pwm";
 			qcom,pwm-channel = <8>;
 			qcom,pwm-us = <1000>;
 			qcom,id = <7>;
-			qcom,max-current = <20>;
+			/*OPPO yuyi 2013-11-26 modify current for button-backlight*/
+			/*qcom,max-current = <20>;*/
+			qcom,max-current = <15>;
+			/*OPPO yuyi 2013-11-26 modify end for button-backlight*/
 			qcom,row-id = <0>;
 			qcom,row-src-en;
 			qcom,always-on;
@@ -145,7 +170,8 @@
 			qcom,use-blink;
 			qcom,in-order-command-processing;
 		};
-
+/*OPPO yuyi 2013-09-27 modify end for button-backlight*/
+/*
 		qcom,kpdbl2 {
 			label = "kpdbl";
 			linux,name = "kpdbl-pwm-2";
@@ -202,5 +228,6 @@
                         qcom,in-order-command-processing;
 
 		};
+		*/
 	};
 };

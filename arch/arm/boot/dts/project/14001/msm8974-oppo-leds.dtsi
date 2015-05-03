@@ -69,15 +69,15 @@
 	};
 
 	qcom,leds@d300 {
-		pm8941_flash0: qcom,flash_0 {
+		qcom,flash_0 {
 			qcom,current = <560>;
 		};
 
-		pm8941_flash1: qcom,flash_1 {
+		qcom,flash_1 {
 			qcom,current = <560>;
 		};
 
-		pm8941_torch: qcom,flash_torch {
+		qcom,flash_torch {
 			qcom,current = <53>;
 		};
 	};
