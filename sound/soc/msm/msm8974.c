@@ -1743,18 +1743,6 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 //liuyan 2013-3-14 add, hpmi switch gpio
 #ifndef CONFIG_OPPO_MSM_14021
        mach_data=(struct msm8974_asoc_mach_data*)(rtd->card->drvdata);
-	mbhc_cfg.hpmic_switch_gpio=mach_data->hpmic_switch_gpio;
-	if (mbhc_cfg.hpmic_switch_gpio) {
-		err = gpio_request(mbhc_cfg.hpmic_switch_gpio, "HPMIC_SWITCH");
-		if (err) {
-			pr_err("%s: Failed to request gpio %d\n", __func__,
-				mbhc_cfg.hpmic_switch_gpio);
-			mbhc_cfg.hpmic_switch_gpio = 0;
-
-		}
-	       
-	}
-	gpio_direction_output(mbhc_cfg.hpmic_switch_gpio, 1);
 	mbhc_cfg.enable_spk_gpio=mach_data->enable_spk_gpio;
 	if (mbhc_cfg.enable_spk_gpio) {
 		err = gpio_request(mbhc_cfg.enable_spk_gpio, "ENABLE_SPK");
