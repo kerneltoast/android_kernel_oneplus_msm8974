@@ -356,6 +356,11 @@ static int32_t msm_actuator_move_focus(
 			a_ctrl->curr_region_index += sign_dir;
 		}
 		a_ctrl->curr_step_pos = target_step_pos;
+		#ifdef VENDOR_EDIT
+		/*muyuezhong,2015/02/07,Add for close camera click*/
+        	a_ctrl->current_lens_pos = a_ctrl->step_position_table[a_ctrl->curr_step_pos];
+        	a_ctrl->hw_params = ringing_params_kernel.hw_params;
+		#endif
 	}
 
 	move_params->curr_lens_pos = curr_lens_pos;
@@ -480,6 +485,14 @@ static int32_t msm_actuator_vreg_control(struct msm_actuator_ctrl_t *a_ctrl,
 static int32_t msm_actuator_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 {
 	int32_t rc = 0;
+	/*muyuezhong,2015/02/07,Add for close camera click*/
+	#ifdef VENDOR_EDIT
+	uint16_t code = 0;
+	uint8_t buf[2];
+	uint16_t value = 0;
+    	uint16_t numsteps = 15;
+    	struct msm_actuator_reg_params_t *write_arr = a_ctrl->reg_tbl;
+	#endif
 	CDBG("Enter\n");
 	if (a_ctrl->actuator_state != ACTUATOR_POWER_DOWN) {
 		if (a_ctrl->vcm_enable) {
@@ -487,7 +500,28 @@ static int32_t msm_actuator_power_down(struct msm_actuator_ctrl_t *a_ctrl)
 			if (!rc)
 				gpio_free(a_ctrl->vcm_pwd);
 		}
-
+		/*muyuezhong,2015/02/07,Add for close camera click*/
+		#ifdef VENDOR_EDIT	
+    		code = a_ctrl->current_lens_pos;
+		CDBG(" a_ctrl->curr_lens_pos = %d\n", a_ctrl->current_lens_pos);
+		while(code && write_arr!=NULL) {
+			CDBG("%s: code is = %d\n",__func__,code);
+			code = (code > numsteps)?(code - numsteps) : 0;
+        		value = (code << write_arr[0].data_shift) |
+			((a_ctrl->hw_params & write_arr[0].hw_mask)>>write_arr[0].hw_shift);
+			buf[0] = (value & 0xFF00) >> 8;
+			buf[1] = value & 0xFF;
+			rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write_seq(&a_ctrl->i2c_client,buf[0],&buf[1], 1);
+			if (rc < 0)
+				pr_err(" warning, rc=%d", rc);
+			usleep_range(8000, 9000);
+		}
+		buf[0] = buf[1] = 0;
+		rc = a_ctrl->i2c_client.i2c_func_tbl->i2c_write_seq(&a_ctrl->i2c_client,buf[0],&buf[1], 1);
+		if (rc < 0)
+			pr_err(" warning, rc=%d", rc);
+		usleep_range(8000, 9000);
+		#endif
 		if (a_ctrl->step_position_table != NULL)
 			kfree(a_ctrl->step_position_table);
 		a_ctrl->step_position_table = NULL;
@@ -679,6 +713,10 @@ static int32_t msm_actuator_init(struct msm_actuator_ctrl_t *a_ctrl,
 
 	a_ctrl->curr_step_pos = 0;
 	a_ctrl->curr_region_index = 0;
+	#ifdef VENDOR_EDIT
+	/*muyuezhong,2015/02/07,Add for close camera click*/
+    	a_ctrl->actuator_state = ACTUATOR_POWER_UP;
+	#endif
 	CDBG("Exit\n");
 
 	return rc;
@@ -731,6 +769,14 @@ static int32_t msm_actuator_config(struct msm_actuator_ctrl_t *a_ctrl,
 		if (rc < 0)
 			pr_err("Failed actuator power up%d\n", rc);
 		break;
+	#ifdef VENDOR_EDIT
+	/*muyuezhong,2015/02/07,Add for close camera click*/
+    	case CFG_ACTUATOR_POWERDOWN:
+        	rc = msm_actuator_power_down(a_ctrl);
+		if (rc < 0)
+            		pr_err("Failed actuator power down %d\n", rc);
+		break;
+	#endif	
 
 	default:
 		break;
@@ -763,6 +809,10 @@ static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl = {
 	.i2c_read = msm_camera_cci_i2c_read,
 	.i2c_read_seq = msm_camera_cci_i2c_read_seq,
 	.i2c_write = msm_camera_cci_i2c_write,
+	#ifdef VENDOR_EDIT
+	/*muyuezhong,2015/02/07,Add for close camera click*/
+	.i2c_write_seq = msm_camera_cci_i2c_write_seq,
+	#endif
 	.i2c_write_table = msm_camera_cci_i2c_write_table,
 	.i2c_write_seq_table = msm_camera_cci_i2c_write_seq_table,
 	.i2c_write_table_w_microdelay =
