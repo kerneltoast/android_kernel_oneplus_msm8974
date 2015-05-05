@@ -7962,7 +7962,7 @@ static void update_heartbeat(struct work_struct *work)
 	qpnp_check_battery_uovp(chip);
 	qpnp_check_battery_temp(chip);
 
-	pr_err("%s current:%d\n", __func__, get_prop_current_now(chip));
+	pr_debug("%s current:%d\n", __func__, get_prop_current_now(chip));
 	
 	qpnp_check_recharging(chip);
 
