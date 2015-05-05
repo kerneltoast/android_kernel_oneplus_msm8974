@@ -481,11 +481,9 @@ static void lm3630_backlight_unregister(struct lm3630_chip_data *pchip)
 
 /* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/03/10  Add for flicker in low backlight */
 		backlight_level =  bl_level;
-		if(bl_level <= 0x14 && pwm_flag==true){
+		if(bl_level <= 0x14 && pwm_flag==true)
 			set_backlight_pwm(0);
-		}else if(bl_level > 0x14 && pwm_flag==false){
-			set_backlight_pwm(1);
-		}
+
 #endif /*VENDOR_EDIT*/
 
 	return bl_level;
