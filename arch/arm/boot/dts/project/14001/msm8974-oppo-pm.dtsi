@@ -133,10 +133,6 @@
 		qcom,warm-bat-mv = <4100>;
 		qcom,ibatmax-cool-ma = <900>;
 	};
-
-	qcom,pm8941_rtc {
-		qcom,qpnp-rtc-alarm-pwrup = <1>;
-	};
 };
 
 &pm8941_chg_boost {
