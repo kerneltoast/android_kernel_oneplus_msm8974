@@ -480,11 +480,10 @@ static int bq27541_soc_calibrate(struct bq27541_device_info *di, int soc)
 	return soc_calib;
 }
 
-static int bq27541_battery_soc(struct bq27541_device_info *di, int time)
+static int bq27541_battery_soc(struct bq27541_device_info *di, bool raw)
 {
 	int ret;
 	int soc = 0;
-	int soc_delt = 0;
 
 #ifdef CONFIG_VENDOR_EDIT
 /* jingchun.wang@Onlinerd.Driver, 2014/02/27  Add for get right soc when sleep long time */
@@ -506,20 +505,15 @@ static int bq27541_battery_soc(struct bq27541_device_info *di, int time)
 			return 0;
 	}
 
-#ifdef CONFIG_VENDOR_EDIT
-/* jingchun.wang@Onlinerd.Driver, 2014/02/27  Add for get right soc when sleep long time */
-	if(time != 0) {
-		if(soc < di->soc_pre) {
-			soc_delt  =  di->soc_pre - soc;
-			//allow capacity decrease 1% every 10minutes when sleep
-			if(time/TEN_MINUTES <  soc_delt) {
-				di->soc_pre  -=  time/TEN_MINUTES;
-			} else  {
-				di->soc_pre = soc;
-			}
+	if (raw == true) {
+		if(soc > 90) {
+			soc += 2;
+		}
+		if(soc <= di->soc_pre) {
+			di->soc_pre = soc;
 		}
 	}
-#endif /*CONFIG_VENDOR_EDIT*/
+
 	soc = bq27541_soc_calibrate(di,soc);
 	return soc;
 	
@@ -1743,20 +1737,11 @@ static int bq27541_battery_remove(struct i2c_client *client)
 	return 0;
 }
 
-extern int msmrtc_alarm_read_time(struct rtc_time *tm);
 static int bq27541_battery_suspend(struct i2c_client *client, pm_message_t message)
 {
-	int ret=0;
-	struct rtc_time	rtc_suspend_rtc_time;
 	struct bq27541_device_info *di = i2c_get_clientdata(client);
 	
 	atomic_set(&di->suspended, 1);
-	ret = msmrtc_alarm_read_time(&rtc_suspend_rtc_time);
-	if (ret < 0) {
-		pr_err("%s: Failed to read RTC time\n", __func__);
-		return 0;
-	}
-	rtc_tm_to_time(&rtc_suspend_rtc_time, &di->rtc_suspend_time);
 	
 	return 0;
 }
@@ -1765,22 +1750,11 @@ static int bq27541_battery_suspend(struct i2c_client *client, pm_message_t messa
 #define RESUME_TIME  1*60 
 static int bq27541_battery_resume(struct i2c_client *client)
 {
-	int ret=0;
-	int suspend_time;
-	struct rtc_time	rtc_resume_rtc_time;
 	struct bq27541_device_info *di = i2c_get_clientdata(client);
 			
 	atomic_set(&di->suspended, 0);
-	ret = msmrtc_alarm_read_time(&rtc_resume_rtc_time);
-	if (ret < 0) {
-		pr_err("%s: Failed to read RTC time\n", __func__);
-		return 0;
-	}
-	rtc_tm_to_time(&rtc_resume_rtc_time, &di->rtc_resume_time);
-	suspend_time =  di->rtc_resume_time - di->rtc_suspend_time;
-
-	/*update pre capacity when sleep time more than 1minutes*/
-	bq27541_battery_soc(bq27541_di, suspend_time); 
+	
+	bq27541_battery_soc(bq27541_di, true); 
 
 	return 0;
 }
