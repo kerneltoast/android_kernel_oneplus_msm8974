@@ -37,26 +37,16 @@ static DEFINE_PER_CPU(struct boost_policy, boost_info);
 static struct workqueue_struct *boost_wq;
 static struct work_struct boost_work;
 
+static DEFINE_MUTEX(boost_mutex);
+
 static bool boost_running;
+static bool freqs_available;
+static unsigned int boost_freq[3];
+static unsigned int boost_ms[3];
+static unsigned int enabled;
 
 static u64 last_input_time;
 #define MIN_INPUT_INTERVAL (150 * USEC_PER_MSEC)
-
-/**
- * Auto boost freq calculation:
- * Requested boost freqs = maxfreq * boost_factor[i] / BOOST_FACTOR_DIVISOR,
- * so the lowest boost freq in this case would be maxfreq * 3 / 7
- */
-static unsigned int boost_freq[3];
-static unsigned int boost_factor[3] = {3, 4, 5};
-#define BOOST_FACTOR_DIVISOR 7
-
-/* Boost duration in millsecs */
-static unsigned int boost_ms[3];
-
-/* On/off switch */
-static unsigned int enabled;
-module_param(enabled, uint, 0644);
 
 /**
  * Percentage threshold used to boost CPUs (default 30%). A higher
@@ -64,7 +54,6 @@ module_param(enabled, uint, 0644);
  * when ((current_freq/max_freq) * 100) < up_threshold
  */
 static unsigned int up_threshold = 30;
-module_param(up_threshold, uint, 0644);
 
 static void cpu_unboost(unsigned int cpu)
 {
@@ -163,6 +152,7 @@ static int cpu_do_boost(struct notifier_block *nb, unsigned long val, void *data
 {
 	struct cpufreq_policy *policy = data;
 	struct boost_policy *b = &per_cpu(boost_info, policy->cpu);
+	unsigned int b_freq;
 
 	if (val != CPUFREQ_ADJUST)
 		return NOTIFY_OK;
@@ -170,15 +160,22 @@ static int cpu_do_boost(struct notifier_block *nb, unsigned long val, void *data
 	if (policy->cpu > 2)
 		return NOTIFY_OK;
 
+	mutex_lock(&boost_mutex);
+	b_freq = boost_freq[policy->cpu];
+	mutex_unlock(&boost_mutex);
+
+	if (!b_freq)
+		return NOTIFY_OK;
+
 	switch (b->boost_state) {
 	case UNBOOST:
 		policy->min = policy->cpuinfo.min_freq;
 		break;
 	case BOOST:
-		if (boost_freq[policy->cpu] > policy->max)
+		if (b_freq > policy->max)
 			policy->min = policy->max;
 		else
-			policy->min = boost_freq[policy->cpu];
+			policy->min = b_freq;
 		break;
 	}
 
@@ -194,9 +191,7 @@ static void cpu_boost_input_event(struct input_handle *handle, unsigned int type
 {
 	u64 now;
 
-	if (boost_running)
-		return;
-	if (!enabled)
+	if (boost_running || !enabled || !freqs_available)
 		return;
 
 	now = ktime_to_us(ktime_get());
@@ -274,35 +269,109 @@ static struct input_handler cpu_boost_input_handler = {
 	.id_table	= cpu_boost_ids,
 };
 
-static int __init cpu_input_boost_init(void)
+/**************************** SYSFS START ****************************/
+static struct kobject *cpu_input_boost_kobject;
+
+static ssize_t boost_freqs_write(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
 {
-	struct cpufreq_frequency_table *table = cpufreq_frequency_get_table(0);
-	struct boost_policy *b;
-	int maxfreq = cpufreq_quick_get_max(0);
-	int b_level = 0, req_freq[3];
-	int i, ret = 1;
+	unsigned int freq[3], i = 0;
+	int ret = sscanf(buf, "%u %u %u", &freq[0], &freq[1], &freq[2]);
 
-	if (!maxfreq) {
-		pr_err("Failed to get max freq, input boost disabled\n");
-		goto err;
-	}
+	if (ret != 3)
+		return -EINVAL;
 
-	/* Calculate ideal boost freqs */
-	for (i = 0; i < 3; i++)
-		req_freq[i] = maxfreq * boost_factor[i] / BOOST_FACTOR_DIVISOR;
+	if (!freq[0] || !freq[1] || !freq[2])
+		return -EINVAL;
 
-	/* Find actual freqs closest to ideal boost freqs */
-	for (i = 0;; i++) {
-		int curr = table[i].frequency - req_freq[b_level];
-		int prev = table[i ? i - 1 : 0].frequency - req_freq[b_level];
+	/* Freq order should be [high, mid, low], so always order it like that */
+	mutex_lock(&boost_mutex);
+	boost_freq[0] = max3(freq[0], freq[1], freq[2]);
+	boost_freq[2] = min3(freq[0], freq[1], freq[2]);
 
-		if (!curr || (curr > 0 && prev < 0)) {
-			boost_freq[2 - b_level] = table[i].frequency;
-			b_level++;
-			if (b_level == 3)
-				break;
+	while (++i) {
+		if ((freq[i] == boost_freq[0]) ||
+			(freq[i] == boost_freq[2])) {
+			freq[i] = 0;
+			i = 0;
+		} else if (freq[i]) {
+			boost_freq[1] = freq[i];
+			break;
 		}
 	}
+	mutex_unlock(&boost_mutex);
+
+	freqs_available = true;
+
+	return size;
+}
+
+static ssize_t enabled_write(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	unsigned int data;
+	int ret = sscanf(buf, "%u", &data);
+
+	if (ret != 1)
+		return -EINVAL;
+
+	enabled = data;
+
+	return size;
+}
+
+static ssize_t up_threshold_write(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	unsigned int data;
+	int ret = sscanf(buf, "%u", &data);
+
+	if (ret != 1)
+		return -EINVAL;
+
+	up_threshold = data;
+
+	return size;
+}
+
+static ssize_t boost_freqs_read(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u %u %u\n", boost_freq[0], boost_freq[1], boost_freq[2]);
+}
+
+static ssize_t enabled_read(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", enabled);
+}
+
+static ssize_t up_threshold_read(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", up_threshold);
+}
+
+static DEVICE_ATTR(boost_freqs, 0644, boost_freqs_read, boost_freqs_write);
+static DEVICE_ATTR(enabled, 0644, enabled_read, enabled_write);
+static DEVICE_ATTR(up_threshold, 0644, up_threshold_read, up_threshold_write);
+
+static struct attribute *cpu_input_boost_attr[] = {
+	&dev_attr_boost_freqs.attr,
+	&dev_attr_enabled.attr,
+	&dev_attr_up_threshold.attr,
+	NULL
+};
+
+static struct attribute_group cpu_input_boost_attr_group = {
+	.attrs  = cpu_input_boost_attr,
+};
+/**************************** SYSFS END ****************************/
+
+static int __init cpu_input_boost_init(void)
+{
+	struct boost_policy *b;
+	int i, ret;
 
 	boost_wq = alloc_workqueue("cpu_input_boost_wq", WQ_HIGHPRI, 0);
 	if (!boost_wq) {
@@ -322,8 +391,22 @@ static int __init cpu_input_boost_init(void)
 	INIT_WORK(&boost_work, cpu_boost_main);
 
 	ret = input_register_handler(&cpu_boost_input_handler);
-	if (ret)
+	if (ret) {
 		pr_err("Failed to register input handler, err: %d\n", ret);
+		goto err;
+	}
+
+	cpu_input_boost_kobject = kobject_create_and_add("cpu_input_boost", kernel_kobj);
+	if (!cpu_input_boost_kobject) {
+		pr_err("Failed to create kobject\n");
+		goto err;
+	}
+
+	ret = sysfs_create_group(cpu_input_boost_kobject, &cpu_input_boost_attr_group);
+	if (ret) {
+		pr_err("Failed to create sysfs interface\n");
+		kobject_put(cpu_input_boost_kobject);
+	}
 err:
 	return ret;
 }
