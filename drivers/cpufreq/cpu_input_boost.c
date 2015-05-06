@@ -27,20 +27,15 @@ enum boost_status {
 	BOOST,
 };
 
-enum boost_pwr {
-	LOW,
-	MID,
-	HIGH,
-};
-
 struct boost_policy {
 	enum boost_status boost_state;
+	struct delayed_work restore_work;
+	unsigned int cpu;
 };
 
 static DEFINE_PER_CPU(struct boost_policy, boost_info);
 static struct workqueue_struct *boost_wq;
 static struct work_struct boost_work;
-static struct delayed_work restore_work;
 
 static bool boost_running;
 
@@ -56,11 +51,8 @@ static unsigned int boost_freq[3];
 static unsigned int boost_factor[3] = {3, 4, 5};
 #define BOOST_FACTOR_DIVISOR 7
 
-/* Boost-freq level to use (high, mid, low) */
-static enum boost_pwr boost_level;
-
 /* Boost duration in millsecs */
-static unsigned int boost_ms;
+static unsigned int boost_ms[3];
 
 /* On/off switch */
 static unsigned int enabled;
@@ -74,22 +66,19 @@ module_param(enabled, uint, 0644);
 static unsigned int up_threshold = 30;
 module_param(up_threshold, uint, 0644);
 
-static void cpu_unboost_all(void)
+static void cpu_unboost(unsigned int cpu)
 {
 	struct boost_policy *b;
-	unsigned int cpu;
 
+	b = &per_cpu(boost_info, cpu);
+	b->boost_state = UNBOOST;
 	get_online_cpus();
-	for_each_possible_cpu(cpu) {
-		b = &per_cpu(boost_info, cpu);
-		if (b->boost_state == BOOST) {
-			b->boost_state = UNBOOST;
-			if (cpu_online(cpu))
-				cpufreq_update_policy(cpu);
-		}
-	}
+	if (cpu_online(cpu))
+		cpufreq_update_policy(cpu);
 	put_online_cpus();
-	boost_running = false;
+
+	if (!cpu)
+		boost_running = false;
 }
 
 static void __cpuinit cpu_boost_main(struct work_struct *work)
@@ -129,24 +118,9 @@ static void __cpuinit cpu_boost_main(struct work_struct *work)
 		return;
 	}
 
-	/* Boost freq to use based on how many CPUs to boost */
-	switch (num_cpus_to_boost * 100 / CONFIG_NR_CPUS) {
-	case 25:
-		boost_level = HIGH;
-		break;
-	case 50:
-		boost_level = MID;
-		break;
-	default:
-		boost_level = LOW;
-	}
-
-	/* Dual-core systems need more power */
-	if (CONFIG_NR_CPUS == 2)
-		boost_level++;
-
-	/* Calculate boost duration */
-	boost_ms = 3000 - ((num_cpus_to_boost * 750) + ((boost_level + 1) * 250));
+	/* Calculate boost duration for each CPU (CPU0 gets the longest) */
+	for (cpu = 0; cpu < num_cpus_to_boost; cpu++)
+		boost_ms[cpu] = ((CONFIG_NR_CPUS - cpu) * 600) - (num_cpus_to_boost * 350);
 
 	/* Prioritize boosting of online CPUs */
 	for_each_online_cpu(cpu) {
@@ -171,13 +145,18 @@ static void __cpuinit cpu_boost_main(struct work_struct *work)
 
 finish_boost:
 	put_online_cpus();
-	queue_delayed_work(boost_wq, &restore_work,
-				msecs_to_jiffies(boost_ms));
+	for (cpu = 0; cpu < num_cpus_boosted; cpu++) {
+		b = &per_cpu(boost_info, cpu);
+		queue_delayed_work(boost_wq, &b->restore_work,
+					msecs_to_jiffies(boost_ms[cpu]));
+	}
 }
 
 static void __cpuinit cpu_restore_main(struct work_struct *work)
 {
-	cpu_unboost_all();
+	struct boost_policy *b = container_of(work, struct boost_policy,
+							restore_work.work);
+	cpu_unboost(b->cpu);
 }
 
 static int cpu_do_boost(struct notifier_block *nb, unsigned long val, void *data)
@@ -188,15 +167,18 @@ static int cpu_do_boost(struct notifier_block *nb, unsigned long val, void *data
 	if (val != CPUFREQ_ADJUST)
 		return NOTIFY_OK;
 
+	if (policy->cpu > 2)
+		return NOTIFY_OK;
+
 	switch (b->boost_state) {
 	case UNBOOST:
 		policy->min = policy->cpuinfo.min_freq;
 		break;
 	case BOOST:
-		if (boost_freq[boost_level] > policy->max)
+		if (boost_freq[policy->cpu] > policy->max)
 			policy->min = policy->max;
 		else
-			policy->min = boost_freq[boost_level];
+			policy->min = boost_freq[policy->cpu];
 		break;
 	}
 
@@ -295,6 +277,7 @@ static struct input_handler cpu_boost_input_handler = {
 static int __init cpu_input_boost_init(void)
 {
 	struct cpufreq_frequency_table *table = cpufreq_frequency_get_table(0);
+	struct boost_policy *b;
 	int maxfreq = cpufreq_quick_get_max(0);
 	int b_level = 0, req_freq[3];
 	int i, ret = 1;
@@ -314,14 +297,14 @@ static int __init cpu_input_boost_init(void)
 		int prev = table[i ? i - 1 : 0].frequency - req_freq[b_level];
 
 		if (!curr || (curr > 0 && prev < 0)) {
-			boost_freq[b_level] = table[i].frequency;
+			boost_freq[2 - b_level] = table[i].frequency;
 			b_level++;
 			if (b_level == 3)
 				break;
 		}
 	}
 
-	boost_wq = alloc_workqueue("cpu_input_boost_wq", WQ_HIGHPRI | WQ_NON_REENTRANT, 0);
+	boost_wq = alloc_workqueue("cpu_input_boost_wq", WQ_HIGHPRI, 0);
 	if (!boost_wq) {
 		pr_err("Failed to allocate workqueue\n");
 		ret = -EFAULT;
@@ -330,7 +313,12 @@ static int __init cpu_input_boost_init(void)
 
 	cpufreq_register_notifier(&cpu_do_boost_nb, CPUFREQ_POLICY_NOTIFIER);
 
-	INIT_DELAYED_WORK(&restore_work, cpu_restore_main);
+	for (i = 0; i < min(CONFIG_NR_CPUS, 3); i++) {
+		b = &per_cpu(boost_info, i);
+		b->cpu = i;
+		INIT_DELAYED_WORK(&b->restore_work, cpu_restore_main);
+	}
+
 	INIT_WORK(&boost_work, cpu_boost_main);
 
 	ret = input_register_handler(&cpu_boost_input_handler);
