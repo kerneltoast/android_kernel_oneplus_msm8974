@@ -49,3 +49,9 @@
 	regulator-min-microvolt = <4500000>;
 	regulator-max-microvolt = <4500000>;
 };
+
+&soc {
+	qcom,wcnss-wlan@fb000000 {
+		qcom,wcnss-pm = <11 21 1200 1 1>;
+	};
+};
