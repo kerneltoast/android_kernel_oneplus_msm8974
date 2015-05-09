@@ -4830,11 +4830,6 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 	unsigned char val = 0;
 
-	if (rmi4_data->pwrrunning)
-		return 0;
-
-	rmi4_data->pwrrunning = true;
-
 	if (rmi4_data->smartcover_enable)
 		synaptics_rmi4_close_smartcover();
 
@@ -4852,14 +4847,11 @@ static int synaptics_rmi4_suspend(struct device *dev)
 		synaptics_enable_gesture(rmi4_data,true);
 		synaptics_enable_pdoze(rmi4_data,true);
 		synaptics_enable_irqwake(rmi4_data,true);
-		rmi4_data->pwrrunning = false;
 		return 0;
 	}
 
-	if (rmi4_data->staying_awake) {
-		rmi4_data->pwrrunning = false;
+	if (rmi4_data->staying_awake)
 		return 0;
-	}
 
 	if (!rmi4_data->sensor_sleep) {
 		rmi4_data->touch_stopped = true;
@@ -4869,7 +4861,6 @@ static int synaptics_rmi4_suspend(struct device *dev)
 		synaptics_rmi4_free_fingers(rmi4_data);
 	}
 
-	rmi4_data->pwrrunning = false;
 	return 0;
 }
 
@@ -4902,11 +4893,6 @@ static int synaptics_rmi4_resume(struct device *dev)
 	unsigned char val = 1;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 
-	if (rmi4_data->pwrrunning)
-		return 0;
-
-	rmi4_data->pwrrunning = true;
-
 	if (rmi4_data->smartcover_enable)
 		synaptics_rmi4_open_smartcover();
 
@@ -4923,19 +4909,14 @@ static int synaptics_rmi4_resume(struct device *dev)
 			atomic_read(&rmi4_data->camera_enable) ||
 			atomic_read(&rmi4_data->music_enable) ||
 			atomic_read(&rmi4_data->flashlight_enable) ? 1 : 0);
-		rmi4_data->pwrrunning = false;
 		return 0;
 	}
 
-	if (rmi4_data->staying_awake) {
-		rmi4_data->pwrrunning = false;
+	if (rmi4_data->staying_awake)
 		return 0;
-	}
 
-	if (!rmi4_data->sensor_sleep) {
-		rmi4_data->pwrrunning = false;
+	if (!rmi4_data->sensor_sleep)
 		return 0;
-	}
 
 	synaptics_rmi4_sensor_wake(rmi4_data);
 	synaptics_rmi4_irq_enable(rmi4_data, true);
@@ -4945,11 +4926,9 @@ static int synaptics_rmi4_resume(struct device *dev)
 		dev_err(&rmi4_data->i2c_client->dev,
 				"%s: Failed to reinit device\n",
 				__func__);
-		rmi4_data->pwrrunning = false;
 		return retval;
 	}
 
-	rmi4_data->pwrrunning = false;
 	return 0;
 }
 

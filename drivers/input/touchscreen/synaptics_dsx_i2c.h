@@ -279,7 +279,6 @@ struct synaptics_rmi4_data {
 	unsigned short f54_ctrl_base_addr;
 	unsigned short f54_data_base_addr;
 	unsigned char gesturemode;
-	bool pwrrunning;
 	unsigned int old_status;
 	unsigned int reset_count; //for reset count
 	unsigned short points[2*7];
