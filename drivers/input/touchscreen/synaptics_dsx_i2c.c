@@ -131,7 +131,7 @@ static void synaptics_rmi4_late_resume(struct early_suspend *h);
 
 static int synaptics_rmi4_suspend(struct device *dev);
 
-static int synaptics_rmi4_resume(struct device *dev);
+static int synaptics_rmi4_resume(struct device *dev, int force);
 
 static ssize_t synaptics_rmi4_f01_reset_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
@@ -596,7 +596,7 @@ static ssize_t synaptics_rmi4_suspend_store(struct device *dev,
 	if (input == 1)
 		synaptics_rmi4_suspend(dev);
 	else if (input == 0)
-		synaptics_rmi4_resume(dev);
+		synaptics_rmi4_resume(dev, 0);
 	else
 		return -EINVAL;
 
@@ -2991,7 +2991,7 @@ static int synaptics_rmi4_irq_enable(struct synaptics_rmi4_data *rmi4_data,
 		rmi4_data->i2c_client->dev.platform_data;
 
 	if (enable) {
-		if (rmi4_data->irq_enabled)
+		if (atomic_read(&rmi4_data->irq_enabled))
 			return retval;
 
 		/* Clear interrupts first */
@@ -3010,12 +3010,12 @@ static int synaptics_rmi4_irq_enable(struct synaptics_rmi4_data *rmi4_data,
 					__func__);
 			return retval;
 		}
-		rmi4_data->irq_enabled = true;
+		atomic_set(&rmi4_data->irq_enabled, 1);
 	} else {
-		if (rmi4_data->irq_enabled) {
+		if (atomic_read(&rmi4_data->irq_enabled)) {
 			disable_irq(rmi4_data->irq);
 			free_irq(rmi4_data->irq, rmi4_data);
-			rmi4_data->irq_enabled = false;
+			atomic_set(&rmi4_data->irq_enabled, 0);
 		}
 	}
 
@@ -4341,9 +4341,12 @@ static int fb_notifier_callback(struct notifier_block *p,
 			}
 			else {
 				print_ts(TS_DEBUG, KERN_ERR "[syna]:resume tp\n");
-				synaptics_rmi4_resume(&(syna_rmi4_data->input_dev->dev));
+				synaptics_rmi4_resume(&(syna_rmi4_data->input_dev->dev), 0);
 			}
 			syna_rmi4_data->old_status = new_status;
+
+			if (!atomic_read(&syna_rmi4_data->irq_enabled) && !new_status)
+				synaptics_rmi4_resume(&(syna_rmi4_data->input_dev->dev), 1);
 			break;
 	}
 	mutex_unlock(&syna_rmi4_data->ops_lock);
@@ -4402,7 +4405,7 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	rmi4_data->board = platform_data;
 	rmi4_data->touch_stopped = false;
 	rmi4_data->sensor_sleep = false;
-	rmi4_data->irq_enabled = false;
+	atomic_set(&rmi4_data->irq_enabled, 0);
 	rmi4_data->fingers_on_2d = false;
 
 	rmi4_data->i2c_read = synaptics_rmi4_i2c_read;
@@ -4799,7 +4802,7 @@ static void synaptics_rmi4_late_resume(struct early_suspend *h)
 		return;
 
 	if (rmi4_data->full_pm_cycle)
-		synaptics_rmi4_resume(&(rmi4_data->input_dev->dev));
+		synaptics_rmi4_resume(&(rmi4_data->input_dev->dev), 0);
 
 	if (rmi4_data->sensor_sleep == true) {
 		synaptics_rmi4_sensor_wake(rmi4_data);
@@ -4887,7 +4890,7 @@ void synaptics_rmi4_sync_lcd_resume(void) {
  * from sleep, enables the interrupt, and starts finger data
  * acquisition.
  */
-static int synaptics_rmi4_resume(struct device *dev)
+static int synaptics_rmi4_resume(struct device *dev, int force)
 {
 	int retval;
 	unsigned char val = 1;
@@ -4911,11 +4914,13 @@ static int synaptics_rmi4_resume(struct device *dev)
 			atomic_read(&rmi4_data->flashlight_enable) ? 1 : 0);
 	}
 
-	if (rmi4_data->staying_awake)
-		return 0;
+	if (!force) {
+		if (rmi4_data->staying_awake)
+			return 0;
 
-	if (!rmi4_data->sensor_sleep)
-		return 0;
+		if (!rmi4_data->sensor_sleep)
+			return 0;
+	}
 
 	synaptics_rmi4_sensor_wake(rmi4_data);
 	synaptics_rmi4_irq_enable(rmi4_data, true);
