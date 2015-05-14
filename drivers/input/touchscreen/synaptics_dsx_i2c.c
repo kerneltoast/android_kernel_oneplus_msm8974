@@ -4909,7 +4909,6 @@ static int synaptics_rmi4_resume(struct device *dev)
 			atomic_read(&rmi4_data->camera_enable) ||
 			atomic_read(&rmi4_data->music_enable) ||
 			atomic_read(&rmi4_data->flashlight_enable) ? 1 : 0);
-		return 0;
 	}
 
 	if (rmi4_data->staying_awake)
