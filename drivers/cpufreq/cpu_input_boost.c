@@ -70,21 +70,21 @@ static void cpu_unboost(unsigned int cpu)
 static void __cpuinit cpu_boost_main(struct work_struct *work)
 {
 	struct boost_policy *b;
-	struct cpufreq_policy *policy;
+	struct cpufreq_policy policy;
 	unsigned int cpu, num_cpus_boosted = 0, num_cpus_to_boost = 0;
+	int ret;
 
 	/* Num of CPUs to be boosted based on current freq of each online CPU */
 	get_online_cpus();
 	for_each_online_cpu(cpu) {
-		policy = cpufreq_cpu_get(cpu);
-		if (policy != NULL) {
-			if ((policy->cur * 100 / policy->max) < up_threshold)
-				num_cpus_to_boost++;
-			cpufreq_cpu_put(policy);
-			/* Only allow 2 CPUs to be staged for boosting from here */
-			if (num_cpus_to_boost == 2)
-				break;
-		}
+		ret = cpufreq_get_policy(&policy, cpu);
+		if (ret)
+			continue;
+		if ((policy.cur * 100 / policy.max) < up_threshold)
+			num_cpus_to_boost++;
+		/* Only allow 2 CPUs to be staged for boosting from here */
+		if (num_cpus_to_boost == 2)
+			break;
 	}
 
 	/* Num of CPUs to be boosted based on how many of them are online */
