@@ -712,7 +712,7 @@ int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
 
 	for (i = 0; i < mdata->nctl; i++) {
 		struct mdss_mdp_ctl *temp = mdata->ctl_off + i;
-		if (temp->power_on && (temp->intf_type != MDSS_MDP_NO_INTF))
+		if (mdss_mdp_ctl_is_power_on(temp) && (temp->intf_type != MDSS_MDP_NO_INTF))
 			bw_sum_of_intfs += temp->bw_pending;
 	}
 
