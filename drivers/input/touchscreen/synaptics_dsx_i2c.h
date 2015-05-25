@@ -193,6 +193,7 @@ struct synaptics_rmi4_data {
 	const struct synaptics_dsx_platform_data *board;
 	struct synaptics_rmi4_device_info rmi4_mod_info;
 	struct regulator *regulator;
+	struct mutex rmi4_pm_mutex;
 	struct mutex rmi4_reset_mutex;
 	struct mutex rmi4_io_ctrl_mutex;
 	unsigned char current_page;
@@ -251,6 +252,7 @@ struct synaptics_rmi4_data {
 	atomic_t flashlight_enable;
 	atomic_t keypad_enable;
 	atomic_t irq_enabled;
+	atomic_t sensor_awake;
 	unsigned char bcontinue;
 };
 
