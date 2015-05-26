@@ -167,27 +167,13 @@ extern int __init board_mfg_mode_init(void);
 extern int __init start_reason_init(void);
 extern int __init boot_mode_init(void);
 
-void __init msm8974_init(void)
+static void oppo_configure_disp_esd(void)
 {
-	struct of_dev_auxdata *adata = msm8974_auxdata_lookup;
-	int rc = 0;
-
-	if (socinfo_init() < 0)
-		pr_err("%s: socinfo_init() failed\n", __func__);
-
-	board_mfg_mode_init();
-	start_reason_init();
-	boot_mode_init();
-
-	msm_8974_init_gpiomux();
-	regulator_has_full_constraints();
-	board_dt_populate(adata);
-	msm8974_add_drivers();
+	int rc;
 
 	rc = gpio_request(28, "disp_esd");
 	if (rc) {
-		pr_err("yanghai request ESD gpio failed, rc=%d\n",
-		       rc);
+		pr_err("%s: request ESD gpio failed, rc=%d\n", __func__, rc);
 		gpio_free(28);
 		return;
 	}
@@ -205,9 +191,27 @@ void __init msm8974_init(void)
 
 	rc = gpio_direction_input(28);
 	if (rc) {
-		pr_err("set_direction for ESD GPIO failed, rc=%d\n", rc);
+		pr_err("%s: set_direction for ESD GPIO failed, rc=%d\n", __func__, rc);
 		gpio_free(28);
 	}
+}
+
+void __init msm8974_init(void)
+{
+	struct of_dev_auxdata *adata = msm8974_auxdata_lookup;
+
+	if (socinfo_init() < 0)
+		pr_err("%s: socinfo_init() failed\n", __func__);
+
+	board_mfg_mode_init();
+	start_reason_init();
+	boot_mode_init();
+
+	msm_8974_init_gpiomux();
+	regulator_has_full_constraints();
+	board_dt_populate(adata);
+	msm8974_add_drivers();
+	oppo_configure_disp_esd();
 }
 
 static struct persistent_ram_descriptor msm_prd[] __initdata = {
