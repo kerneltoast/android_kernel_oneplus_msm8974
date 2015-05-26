@@ -86,12 +86,6 @@
 			reg = <0x55>;
 			microchip,mcu-en-gpio = <&pm8941_gpios 3 0>;
 		};
-
-		pic16f_fastcg@25{
-			status = "okay";
-			compatible = "microchip,pic16f_fastcg";
-			reg = <0x25>;
-		};
 	};
 
 	i2c@f9928000 {
