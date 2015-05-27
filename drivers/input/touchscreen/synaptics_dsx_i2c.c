@@ -2466,7 +2466,6 @@ static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
 	}
 
 	atomic_set(&rmi4_data->sensor_awake, 1);
-	usleep(5);
 }
 
 /**
