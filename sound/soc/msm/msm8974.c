@@ -234,7 +234,7 @@ struct msm8974_asoc_mach_data {
 //liuyan 2013-3-14 add,hp mic switch
 #ifdef VENDOR_EDIT
        int hpmic_switch_gpio;
-#ifdef CONFIG_OPPO_MSM_14001
+#ifdef CONFIG_MACH_MSM8974_14001
 /* xiaojun.lv@Prd.AudioDrv,2014/2/10,add for 14001 regulator*/       
 	struct regulator	*cdc_spk;
 #endif	
@@ -1758,7 +1758,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	printk("%s:enable_spk_gpio(%d)\n",__func__,mbhc_cfg.enable_spk_gpio);
 	//mbhc_cfg.cdc_spk=mach_data->cdc_spk;
 	//liuyan add for dvt
-#ifndef CONFIG_OPPO_MSM_14001
+#ifndef CONFIG_MACH_MSM8974_14001
 /* xiaojun.lv@Prd.AudioDrv,2014/2/22,modify for 14001 spk control*/	
 	if(pcb_version >= HW_VERSION__12){
            mbhc_cfg.yda145_ctr_gpio=mach_data->yda145_ctr_gpio;
@@ -1789,7 +1789,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	gpio_direction_output(mbhc_cfg.yda145_boost_gpio, 0);
 	printk("%s:yda145_boost_gpio(%d)\n",__func__,mbhc_cfg.yda145_boost_gpio);
 	}
-#else /* CONFIG_OPPO_MSM_14001 */
+#else /* CONFIG_MACH_MSM8974_14001 */
     mbhc_cfg.yda145_ctr_gpio=mach_data->yda145_ctr_gpio;
 	if (mbhc_cfg.yda145_ctr_gpio) {
 		err = gpio_request(mbhc_cfg.yda145_ctr_gpio, "YDA145_CTR");
@@ -1801,7 +1801,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	}
 	gpio_direction_output(mbhc_cfg.yda145_ctr_gpio, 0);
 	printk("%s:yda145_ctr_gpio(%d)\n",__func__,mbhc_cfg.yda145_ctr_gpio);
-#endif /* CONFIG_OPPO_MSM_14001 */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 #endif
 //liuyan add end
 	mbhc_cfg.calibration = def_taiko_mbhc_cal();
@@ -3357,7 +3357,7 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 		//ret = -ENODEV;
 		//goto err;
 	}
-#ifndef CONFIG_OPPO_MSM_14001
+#ifndef CONFIG_MACH_MSM8974_14001
 /* xiaojun.lv@Prd.AudioDrv,2014/2/22,modify for 14001 spk control*/
         //liuyan add for dvt
         if(pcb_version >= HW_VERSION__12){
@@ -3382,7 +3382,7 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 		//goto err;
 	    }
         }
-#else  /* CONFIG_OPPO_MSM_14001 */
+#else  /* CONFIG_MACH_MSM8974_14001 */
             pdata->yda145_ctr_gpio= of_get_named_gpio(pdev->dev.of_node,
 				"qcom,yda145_ctr-gpio", 0);
 	        if (pdata->yda145_ctr_gpio < 0) {
@@ -3391,7 +3391,7 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
     			"qcom,yda145_ctr-gpio", pdev->dev.of_node->full_name,
     			pdata->yda145_ctr_gpio);
     	    }
-#endif /* CONFIG_OPPO_MSM_14001 */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 	/*pdata->cdc_spk= regulator_get(&pdev->dev, "cdc_spk");
 		if (IS_ERR(pdata->cdc_spk)) {
 			pr_err("%s:Failed to get hpmic switch regulator\n",__func__);
@@ -3477,7 +3477,7 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 #ifdef VENDOR_EDIT
-#ifdef CONFIG_OPPO_MSM_14001
+#ifdef CONFIG_MACH_MSM8974_14001
 /* xiaojun.lv@Prd.AudioDrv,2014/2/10,add for 14001 regulator*/
         pdata->cdc_spk= regulator_get(&pdev->dev, "cdc_spk");
 		if (IS_ERR(pdata->cdc_spk)) {

@@ -2,28 +2,13 @@ config MACH_OPPO
 	bool
 	depends on ARCH_MSM
 
-config OPPO_MSM_14001
-	bool "OPPO_MSM_14001"
-
-config OPPO_DEVICE_FIND7OP
-	bool "OPPO_DEVICE_FIND7OP"
-
-config MACH_OPPO_MSM8974
-	depends on ARCH_MSM8974
-	select MACH_OPPO
-	bool "Oppo MSM8974 Platform"
-	help
-	  Support for Oppo MSM8974 device variants.
-
 menu "Oppo board selection"
 
-config MACH_FIND7OP
-	select MACH_OPPO_MSM8974
-	select OPPO_MSM_14001
-	select OPPO_DEVICE_FIND7OP
-	bool "Oneplus"
+config MACH_MSM8974_14001
+	bool "OnePlus One"
+	select MACH_OPPO
 	help
-	  Support for the Oneplus variant
+	  Support for the OnePlus One (bacon)
 
 endmenu
 

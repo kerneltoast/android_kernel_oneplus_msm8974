@@ -1562,7 +1562,7 @@ static const struct soc_enum taiko_2_x_ear_pa_gain_enum =
 
 /*liuyan 2013-8-19 add for spk*/
 #ifdef VENDOR_EDIT
-#if defined CONFIG_OPPO_MSM_14001
+#if defined CONFIG_MACH_MSM8974_14001
 /* xiaojun.lv@PhoneDpt.AudioDrv,2014/3/18,modify for 14001 spk control*/
 static int spkr_put_control(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
@@ -1622,7 +1622,7 @@ static int spkr_put_control(struct snd_kcontrol *kcontrol,
 	}
 	return 0;
 }
-#else /* CONFIG_OPPO_MSM_14001 */
+#else /* CONFIG_MACH_MSM8974_14001 */
 static int spkr_put_control(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
@@ -1663,7 +1663,7 @@ static int spkr_put_control(struct snd_kcontrol *kcontrol,
 
 	return 0;
 }
-#endif /* CONFIG_OPPO_MSM_14001 */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 
 static int spkr_get_control(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
@@ -6451,7 +6451,7 @@ static int taiko_handle_pdata(struct taiko_priv *taiko)
 	snd_soc_update_bits(codec, TAIKO_A_MICB_1_CTL, 0x1E, value);
 #ifdef VENDOR_EDIT
 /* liuyan@Onlinerd.driver, 2014/05/15  Add for set micbiase to capless mode. */
-#ifdef CONFIG_OPPO_MSM_14001
+#ifdef CONFIG_MACH_MSM8974_14001
 	value = (pdata->micbias.bias2_cap_mode == MICBIAS_EXT_BYP_CAP ?
 		 0x00 : 0x16);
 #else

@@ -6825,7 +6825,7 @@ static int soft_aicl(struct qpnp_chg_chip *chip)
 			qpnp_chg_ibatmax_set(chip, 2112);
 		chg_vol = get_prop_charger_voltage_now(chip);
 		if (chg_vol < SOFT_AICL_VOL - 30) {
-#ifdef CONFIG_OPPO_DEVICE_FIND7OP
+#ifdef CONFIG_MACH_MSM8974_14001
 /* OPPO 2014-06-03 sjc Modify for Find7op temp rising problem */
 			qpnp_chg_iusbmax_set(chip, 1200);
 			qpnp_chg_iusbmax_set(chip, 1200);
@@ -6841,7 +6841,7 @@ static int soft_aicl(struct qpnp_chg_chip *chip)
 			return 0;
 		}
 	}
-#ifdef CONFIG_OPPO_DEVICE_FIND7OP
+#ifdef CONFIG_MACH_MSM8974_14001
 /* OPPO 2014-06-03 sjc Modify for Find7op temp rising problem */
 	qpnp_chg_iusbmax_set(chip, 1200);
 	qpnp_chg_iusbmax_set(chip, 1200);
@@ -6935,7 +6935,7 @@ static int qpnp_start_charging(struct qpnp_chg_chip *chip)
 				soft_aicl(chip);
 			} else {
 				if (chip->aicl_current >= 1500) {
-#ifdef CONFIG_OPPO_DEVICE_FIND7OP
+#ifdef CONFIG_MACH_MSM8974_14001
 /* OPPO 2014-06-03 sjc Modify for Find7op temp rising problem */
 					qpnp_chg_iusbmax_set(chip, 1200);
 					qpnp_chg_iusbmax_set(chip, 1200);
@@ -6983,7 +6983,7 @@ static int qpnp_start_charging(struct qpnp_chg_chip *chip)
 				soft_aicl(chip);
 			} else {
 				if (chip->aicl_current >= 1500) {
-#ifdef CONFIG_OPPO_DEVICE_FIND7OP
+#ifdef CONFIG_MACH_MSM8974_14001
 /* OPPO 2014-06-03 sjc Modify for Find7op temp rising problem */
 					qpnp_chg_iusbmax_set(chip, 1200);
 					qpnp_chg_iusbmax_set(chip, 1200);
@@ -7305,7 +7305,7 @@ static int handle_batt_temp_little_cool(struct qpnp_chg_chip *chip)
 					soft_aicl(chip);
 				} else {
 					if (chip->aicl_current >= 1500) {
-#ifdef CONFIG_OPPO_DEVICE_FIND7OP
+#ifdef CONFIG_MACH_MSM8974_14001
 /* OPPO 2014-06-03 sjc Modify for Find7op temp rising problem */
 						qpnp_chg_iusbmax_set(chip, 1200);
 #else
@@ -7388,7 +7388,7 @@ static int handle_batt_temp_normal(struct qpnp_chg_chip *chip)
 					soft_aicl(chip);
 				} else {
 					if (chip->aicl_current >= 1500) {
-#ifdef CONFIG_OPPO_DEVICE_FIND7OP
+#ifdef CONFIG_MACH_MSM8974_14001
 /* OPPO 2014-06-03 sjc Modify for Find7op temp rising problem */
 						qpnp_chg_iusbmax_set(chip, 1200);
 #else
@@ -7863,7 +7863,7 @@ bool is_alow_fast_chg(struct qpnp_chg_chip *chip)
 		return false;
 	if(chg_type != POWER_SUPPLY_TYPE_USB_DCP)
 		return false;
-#ifndef CONFIG_OPPO_DEVICE_FIND7OP
+#ifndef CONFIG_MACH_MSM8974_14001
 /* jingchun.wang@Onlinerd.Driver, 2014/02/25  Modify for use different temp range of 14001 */
 	if(temp < 105)
 		return false;
@@ -7872,10 +7872,10 @@ bool is_alow_fast_chg(struct qpnp_chg_chip *chip)
 		return false;
 	}
 //lfc add for 13097 end
-#else /*CONFIG_OPPO_DEVICE_FIND7OP*/
+#else /*CONFIG_MACH_MSM8974_14001*/
 	if(temp < 205)
 		return false;
-#endif /*CONFIG_OPPO_DEVICE_FIND7OP*/
+#endif /*CONFIG_MACH_MSM8974_14001*/
 	if(temp > 420)
 		return false;
 	if(cap < 1)
@@ -8158,7 +8158,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 								if (chip->usbin_counts == USBIN_COUNT_FLAG && !qpnp_get_fast_chg_ing(chip))
 									qpnp_chg_iusbmax_set(chip, 900);
 							} else {
-#ifdef CONFIG_OPPO_DEVICE_FIND7OP
+#ifdef CONFIG_MACH_MSM8974_14001
 /* OPPO 2014-06-03 sjc Modify for Find7op temp rising problem */
 								qpnp_chg_iusbmax_set(chip, 1200);
 #else

@@ -1109,7 +1109,7 @@ static struct platform_device this_device = {
 #define KEY_LEN			16
 
 /* OPPO 2014-02-25 sjc Modify begin for FIND7OP not use authenticate */
-#if defined (CONFIG_OPPO_DEVICE_FIND7OP) || defined (CONFIG_OPPO_MSM_14021)
+#if defined (CONFIG_MACH_MSM8974_14001) || defined (CONFIG_OPPO_MSM_14021)
 static bool bq27541_authenticate(struct i2c_client *client)
 {
 	return true;
@@ -1166,7 +1166,7 @@ static bool bq27541_authenticate(struct i2c_client *client)
 	}
 	return false;
 }
-#endif //CONFIG_OPPO_DEVICE_FIND7OP
+#endif //CONFIG_MACH_MSM8974_14001
 /* OPPO 2014-02-25 sjc Modify end */
 #endif //CONFIG_VENDOR_EDIT
 
@@ -1176,12 +1176,12 @@ static bool bq27541_authenticate(struct i2c_client *client)
 #define BATTERY_3000MA		1
 #define TYPE_INFO_LEN		8
 
-#if defined (CONFIG_OPPO_DEVICE_FIND7OP) || defined (CONFIG_OPPO_MSM_14021)
+#if defined (CONFIG_MACH_MSM8974_14001) || defined (CONFIG_OPPO_MSM_14021)
 static int bq27541_batt_type_detect(struct i2c_client *client)
 {
 	return BATTERY_3000MA;
 }
-#else //defined (CONFIG_OPPO_DEVICE_FIND7OP) || defined (CONFIG_OPPO_MSM_14021)
+#else //defined (CONFIG_MACH_MSM8974_14001) || defined (CONFIG_OPPO_MSM_14021)
 /* jingchun.wang@Onlinerd.Driver, 2014/03/10  Modify for 14001 */
 static int bq27541_batt_type_detect(struct i2c_client *client)
 {
@@ -1209,7 +1209,7 @@ static int bq27541_batt_type_detect(struct i2c_client *client)
 	pr_info("%s battery_type:%d\n",__func__,rc);
 	return rc;
 }
-#endif //defined (CONFIG_OPPO_DEVICE_FIND7OP) || defined (CONFIG_OPPO_MSM_14021)
+#endif //defined (CONFIG_MACH_MSM8974_14001) || defined (CONFIG_OPPO_MSM_14021)
 #endif //CONFIG_VENDOR_EDIT
 
 /* OPPO 2013-12-12 liaofuchun add for fastchg */

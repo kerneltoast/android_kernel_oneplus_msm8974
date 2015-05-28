@@ -5343,7 +5343,7 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 		ret = snd_jack_set_key(mbhc->button_jack.jack,
 				       SND_JACK_BTN_0,
 				       KEY_MEDIA);
-#ifdef CONFIG_OPPO_MSM_14001
+#ifdef CONFIG_MACH_MSM8974_14001
 /* xiaojun.lv@Prd.AudioDrv,2014/3/7,add for 14001 headset input key value*/
 /* BTN_1 BTN_2 add for digital mode*/
 		ret = snd_jack_set_key(mbhc->button_jack.jack,
@@ -5358,7 +5358,7 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 		ret = snd_jack_set_key(mbhc->button_jack.jack,
 				       SND_JACK_BTN_7,
 				       KEY_VOLUMEDOWN);
-#endif /* CONFIG_OPPO_MSM_14001 */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 		if (ret) {
 			pr_err("%s: Failed to set code for btn-0\n",
 				__func__);

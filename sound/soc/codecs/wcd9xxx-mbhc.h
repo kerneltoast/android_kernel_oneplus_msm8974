@@ -246,10 +246,10 @@ struct wcd9xxx_mbhc_config {
 	struct regulator	*cdc_hpmic_switch;
 	int hpmic_regulator_count;
 	int count_regulator;
-#ifdef CONFIG_OPPO_MSM_14001
+#ifdef CONFIG_MACH_MSM8974_14001
 /* xiaojun.lv@Prd.AudioDrv,2014/2/10,add for 14001 regulator*/ 
 	struct regulator	*cdc_spk;
-#endif /* CONFIG_OPPO_DEVICE_FIND7OP */	
+#endif /* CONFIG_MACH_MSM8974_14001 */	
 	int enable_spk_gpio;
 	int yda145_ctr_gpio;
 	int yda145_boost_gpio;

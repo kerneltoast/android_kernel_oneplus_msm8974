@@ -28,7 +28,7 @@
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
-#ifdef CONFIG_OPPO_MSM_14001
+#ifdef CONFIG_MACH_MSM8974_14001
 extern  int lm3630_bank_a_update_status(u32 bl_level);
 #endif
 
@@ -389,7 +389,7 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 
 	switch (ctrl_pdata->bklt_ctrl) {
 	case BL_WLED:
-#ifdef CONFIG_OPPO_MSM_14001
+#ifdef CONFIG_MACH_MSM8974_14001
 		lm3630_bank_a_update_status(bl_level);
 #else
 		led_trigger_event(bl_led_trigger, bl_level);

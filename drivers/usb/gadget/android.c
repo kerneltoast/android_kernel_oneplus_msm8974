@@ -78,9 +78,9 @@
 
 #ifdef VENDOR_EDIT
 //Wangwei@Prd.Android.USB, 2014/06/12, Add for support odb
-#ifndef CONFIG_OPPO_MSM_14001
+#ifndef CONFIG_MACH_MSM8974_14001
 #include "f_odb.c"
-#endif  /* CONFIG_OPPO_MSM_14001 */
+#endif  /* CONFIG_MACH_MSM8974_14001 */
 #endif  /* VENDOR_EDIT */
 
 #include "f_ccid.c"
@@ -596,7 +596,7 @@ static void adb_closed_callback(void)
 
 #ifdef VENDOR_EDIT
 //LinJie.Xu@Prd.Android.USB, 2014/06/12, Add for Support odb 
-#ifndef CONFIG_OPPO_MSM_14001
+#ifndef CONFIG_MACH_MSM8974_14001
 /*-------------------------------------------------------------------------*/
 /* Supported functions initialization */
 
@@ -712,7 +712,7 @@ static void odb_closed_callback(void)
 	if (dev)
 		mutex_unlock(&dev->mutex);
 }
-#endif  /* CONFIG_OPPO_MSM_14001 */  
+#endif  /* CONFIG_MACH_MSM8974_14001 */  
 #endif /* VENDOR_EDIT */
 /*-------------------------------------------------------------------------*/
 /* Supported functions initialization */
@@ -2235,9 +2235,9 @@ static struct android_usb_function *supported_functions[] = {
 	
 #ifdef VENDOR_EDIT
 //Wangwei@Prd.Android.USB, 2014/06/12, Add for support odb	
-#ifndef CONFIG_OPPO_MSM_14001
+#ifndef CONFIG_MACH_MSM8974_14001
 	&odb_function,
-#endif  /* CONFIG_OPPO_MSM_14001 */
+#endif  /* CONFIG_MACH_MSM8974_14001 */
 #endif /* VENDOR_EDIT */
 	
 	&ccid_function,
