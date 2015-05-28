@@ -144,7 +144,7 @@
 	qcom,leds@d700 {
 		status = "disabled";
 	};
-/*VENDOR_EDIT*/
+/*CONFIG_MACH_MSM8974_14001*/
 /*OPPO yuyi 2013-09-27 modify begin for button-backlight*/		
 	qcom,leds@e200 {
 		status = "okay";

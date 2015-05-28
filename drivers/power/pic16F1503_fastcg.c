@@ -36,7 +36,7 @@ int pic_have_updated = 0;
 
 extern void mcu_en_gpio_set(int value);//sjc0623 add
 
-#ifndef CONFIG_VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 //Fuchun.Liao@EXP.Driver,2014/04/11,modify for add regs check after fw update
 int pic16f_fw_update(void)
 {

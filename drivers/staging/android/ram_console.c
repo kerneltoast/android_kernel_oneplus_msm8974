@@ -74,7 +74,7 @@ static int __devinit ram_console_probe(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef VENDOR_EDIT /*schedule ramconsole initailize on cpu 2 by huruihuan*/
+#ifdef CONFIG_MACH_MSM8974_14001 /*schedule ramconsole initailize on cpu 2 by huruihuan*/
 struct ram_console_optimize_data{
 	struct work_struct work;
 	struct platform_device *pdev;
@@ -101,14 +101,14 @@ static struct platform_driver ram_console_driver = {
 	.driver		= {
 		.name	= "ram_console",
 	},
-#ifdef VENDOR_EDIT /*schedule ramconsole initailize on cpu 2 by huruihuan*/
+#ifdef CONFIG_MACH_MSM8974_14001 /*schedule ramconsole initailize on cpu 2 by huruihuan*/
 	.probe = ram_console_probe_oneplus,
 #else
 	.probe = ram_console_probe,
 #endif
 };
 
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 //Zhilong.Zhang@OnlineRd.Driver, 2013/12/03, Add for ram_console device
 static struct platform_device *ram_console_dev;
 #endif
@@ -116,10 +116,10 @@ static struct platform_device *ram_console_dev;
 static int __init ram_console_module_init(void)
 {
 
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 //Zhilong.Zhang@OnlineRd.Driver, 2013/12/03, Add for ram_console device
 	return platform_driver_register(&ram_console_driver);
-#else  /* VENDOR_EDIT */
+#else  /* CONFIG_MACH_MSM8974_14001 */
 	int ret;
 
 	ram_console_dev = platform_device_alloc("ram_console", -1);
@@ -137,7 +137,7 @@ static int __init ram_console_module_init(void)
 		platform_device_unregister(ram_console_dev);
 
 	return ret;
-#endif  /* VENDOR_EDIT */
+#endif  /* CONFIG_MACH_MSM8974_14001 */
 }
 
 #ifndef CONFIG_PRINTK
@@ -155,11 +155,11 @@ static ssize_t ram_console_read_old(struct file *file, char __user *buf,
 	char *str;
 	int ret;
 
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 //Zhilong.Zhang@OnlineRd.Driver, 2014/01/16, Delete for solve the problem that can not read /proc/last_kmsg right.
 	if (dmesg_restrict && !capable(CAP_SYSLOG))
 		return -EPERM;
-#endif  /* VENDOR_EDIT */
+#endif  /* CONFIG_MACH_MSM8974_14001 */
 
 	/* Main last_kmsg log */
 	if (pos < old_log_size) {

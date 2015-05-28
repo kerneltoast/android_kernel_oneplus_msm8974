@@ -36,7 +36,7 @@
 #include <linux/gpio.h>
 #include <linux/input.h>
 //liuyan 2013-12-26 add for hpmic switch power
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 #include <linux/regulator/consumer.h>
 #endif
 //liuyan add end
@@ -71,7 +71,7 @@
 #define HS_DETECT_PLUG_TIME_MS (5 * 1000)
 #define ANC_HPH_DETECT_PLUG_TIME_MS (5 * 1000)
 //liuyan 2013-1-2 for delay detect headset
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 #define HS_DETECT_PLUG_INERVAL_MS 500
 #else
 #define HS_DETECT_PLUG_INERVAL_MS 100
@@ -134,13 +134,13 @@
 #define WCD9XXX_V_CS_HS_MAX 500
 #define WCD9XXX_V_CS_NO_MIC 5
 #define WCD9XXX_MB_MEAS_DELTA_MAX_MV 80
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 /* xiaojun.lv@PhoneDpt.AudioDrv, 2014/06/11, modify for 14001 headset */
 #define WCD9XXX_CS_MEAS_DELTA_MAX_MV 12
 #else
 #define WCD9XXX_CS_MEAS_DELTA_MAX_MV 90
 #endif
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 //liuyan 2013-12-9 add for headset type detec
 #define WCD9XXX_CS_MAX_MV 120
 #define WCD9xxx_CS_THRESHED 10
@@ -875,7 +875,7 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 		mbhc->zl = mbhc->zr = 0;
 		pr_debug("%s: Reporting removal %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
-	#ifdef VENDOR_EDIT
+	#ifdef CONFIG_MACH_MSM8974_14001
               //liuyan 2013-3-13 add
               switch_set_state(&mbhc->wcd9xxx_sdev,0);
 	       //gpio_set_value(mbhc->mbhc_cfg->hpmic_switch_gpio,0);
@@ -972,7 +972,7 @@ static void wcd9xxx_report_plug(struct wcd9xxx_mbhc *mbhc, int insertion,
 
 		pr_debug("%s: Reporting insertion %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
-	#ifdef VENDOR_EDIT
+	#ifdef CONFIG_MACH_MSM8974_14001
               //liuyan 2013-3-13 add
               switch(mbhc->current_plug){
                case PLUG_TYPE_HEADPHONE:
@@ -1440,7 +1440,7 @@ static int wcd9xxx_hphl_status(struct wcd9xxx_mbhc *mbhc)
 	snd_soc_write(codec, WCD9XXX_A_MBHC_HPH, hph);
 	return status;
 }
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 /*liuyan 2013-11-29 for detect ur headset and am headset, and pop sounc*/
 static enum wcd9xxx_mbhc_plug_type
 wcd9xxx_cs_find_plug_type(struct wcd9xxx_mbhc *mbhc,
@@ -1851,7 +1851,7 @@ void wcd9xxx_turn_onoff_current_source(struct wcd9xxx_mbhc *mbhc,
 				    btn_det->mbhc_nsc << 3);
 	}
 }
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 /*liuyan 2013-11-29 for detect ur headset and am headset, and pop sounc*/
 static int wcd9xxx_cs_get_vdec_value(struct wcd9xxx_mbhc *mbhc,
 			  struct wcd9xxx_mbhc_detect *dt, const int size,
@@ -2078,7 +2078,7 @@ wcd9xxx_cs_find_plug_type(struct wcd9xxx_mbhc *mbhc,
 }
 
 #endif
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 static enum wcd9xxx_mbhc_plug_type
 wcd9xxx_codec_cs_get_plug_type(struct wcd9xxx_mbhc *mbhc, bool highhph)
 {
@@ -2629,7 +2629,7 @@ static void wcd9xxx_find_plug_and_report(struct wcd9xxx_mbhc *mbhc,
 			 * Do not enable HPHL trigger. If playback is active,
 			 * it might lead to continuous false HPHL triggers
 			 */
-		#ifndef VENDOR_EDIT
+		#ifndef CONFIG_MACH_MSM8974_14001
 			 /*liuyan 2013-3-11 delete elc detec*/
 			wcd9xxx_enable_hs_detect(mbhc, 1, MBHC_USE_MB_TRIGGER,
 						 false);
@@ -2642,7 +2642,7 @@ static void wcd9xxx_find_plug_and_report(struct wcd9xxx_mbhc *mbhc,
 			wcd9xxx_cleanup_hs_polling(mbhc);
 			pr_debug("setup mic trigger for further detection\n");
 			mbhc->lpi_enabled = true;
-		#ifndef VENDOR_EDIT
+		#ifndef CONFIG_MACH_MSM8974_14001
 			/*liuyan 2013-3-11 delete elc detec*/
 			wcd9xxx_enable_hs_detect(mbhc, 1, MBHC_USE_MB_TRIGGER |
 							  MBHC_USE_HPHL_TRIGGER,
@@ -2674,7 +2674,7 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 
 	mbhc->scaling_mux_in = 0x04;
 	//liuyan 2014-1-2 modify for delay detect headset
-	#ifdef VENDOR_EDIT
+	#ifdef CONFIG_MACH_MSM8974_14001
        plug_type=PLUG_TYPE_INVALID;
 	#else
 
@@ -2697,7 +2697,7 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 			 __func__);
 		return;
 	}
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
         //liuyan 2013-3-13 add
         printk("%s:plug_type:%d,\n",__func__,plug_type);
         //liuyan add end
@@ -3385,7 +3385,7 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 
 		pr_debug("%s: attempt(%d) current_plug(%d) new_plug(%d)\n",
 			 __func__, retry, mbhc->current_plug, plug_type);
-	#ifdef VENDOR_EDIT
+	#ifdef CONFIG_MACH_MSM8974_14001
 	       //liuyan 2013-3-13 add
 		printk("%s: attempt(%d) current_plug(%d) new_plug(%d)\n",
 			 __func__, retry, mbhc->current_plug, plug_type);
@@ -3500,7 +3500,7 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 		    (plug_type == PLUG_TYPE_INVALID && wrk_complete)) {
 			/* Enable removal detection */
 			wcd9xxx_cleanup_hs_polling(mbhc);
-		#ifndef VENDOR_EDIT
+		#ifndef CONFIG_MACH_MSM8974_14001
 			/*liuyan 2013-3-11 delete elc detec*/
 			wcd9xxx_enable_hs_detect(mbhc, 0, 0, false);
 			/*liuyan delete end*/
@@ -3534,7 +3534,7 @@ static void wcd9xxx_swch_irq_handler(struct wcd9xxx_mbhc *mbhc)
 	insert = !wcd9xxx_swch_level_remove(mbhc);
 	pr_debug("%s: Current plug type %d, insert %d\n", __func__,
 		 mbhc->current_plug, insert);
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
        //liuyan 2013-3-13 add
 	printk("%s: Current plug type %d, insert %d\n", __func__,
 		 mbhc->current_plug, insert);
@@ -3901,7 +3901,7 @@ irqreturn_t wcd9xxx_dce_handler(int irq, void *data)
 		goto done;
 	}
 //liuan 2013-4-18 add
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
        printk("press button\n");
 #endif
 //liuyan add end
@@ -4073,7 +4073,7 @@ static irqreturn_t wcd9xxx_release_handler(int irq, void *data)
 	bool waitdebounce = true;
 	struct wcd9xxx_mbhc *mbhc = data;
 //liuyan 2013-4-18 add
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
         printk("release button\n");
 #endif
 //liuyan add end

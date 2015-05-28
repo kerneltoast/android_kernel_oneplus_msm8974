@@ -1346,13 +1346,13 @@ int mmc_attach_sd(struct mmc_host *host)
 		mmc_host_clk_release(host);
 	}
 
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
     //Lycan.Wang@Prd.BasicDrv, 2014-07-10 Add for retry 5 times when new sdcard init error
 	if (!host->detect_change_retry) {
         pr_err("%s have init error 5 times\n", __func__);
         return -ETIMEDOUT;
     }
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 
 	err = mmc_send_app_op_cond(host, 0, &ocr);
 	if (err)
@@ -1406,15 +1406,15 @@ int mmc_attach_sd(struct mmc_host *host)
 	 * Detect and init the card.
 	 */
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
     //Lycan.Wang@Prd.BasicDrv, 2014-07-10 Modify for init retry only once when have init error before
     retries = 5;
-#else /* VENDOR_EDIT */
+#else /* CONFIG_MACH_MSM8974_14001 */
     if (host->detect_change_retry < 5) 
         retries = 1;
     else
         retries = 5;
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 
 	while (retries) {
 		err = mmc_sd_init_card(host, host->ocr, NULL);
@@ -1460,11 +1460,11 @@ remove_card:
 	mmc_claim_host(host);
 err:
 	mmc_detach_bus(host);
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
     //Lycan.Wang@Prd.BasicDrv, 2014-07-10 Add for retry 5 times when new sdcard init error
     host->detect_change_retry--;
     pr_err("detect_change_retry = %d !!!\n", host->detect_change_retry);
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 	if (err)
 		pr_err("%s: error %d whilst initialising SD card: rescan: %d\n",
 		       mmc_hostname(host), err, host->rescan_disable);

@@ -31,7 +31,7 @@
 #include "msm-pcm-routing-v2.h"
 
 /* OPPO 2014-07-25 John.Xu@Audio.Driver Add begin for fix sometime phone will go to sleep when get detect event */
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 #include <linux/wakelock.h>
 #endif
 /* OPPO 2014-07-25 John.Xu@Audio.Driver Add end */
@@ -47,7 +47,7 @@ struct lsm_priv {
 	unsigned long event_avail;
 	atomic_t event_wait_stop;
 /* OPPO 2014-07-25 John.Xu@Audio.Driver Add begin for fix sometime phone will go to sleep when get detect event */
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
     struct wake_lock timeout_wake_lock;
 #endif
 /* OPPO 2014-07-25 John.Xu@Audio.Driver Add end */
@@ -196,7 +196,7 @@ static int msm_lsm_ioctl(struct snd_pcm_substream *substream,
 					rc = -EFAULT;
 				} else {
 /* OPPO 2014-07-25 John.Xu@Audio.Driver Add begin for fix sometime phone will go to sleep when get detect event */
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 				    if(event_status->status == 2) {
 				        pr_err("%s: Detect event 3second timeout wake lock \n",__func__);
 				        wake_lock_timeout(&prtd->timeout_wake_lock, msecs_to_jiffies(3000));
@@ -291,7 +291,7 @@ static int msm_lsm_open(struct snd_pcm_substream *substream)
 	}
 
 /* OPPO 2014-07-25 John.Xu@Audio.Driver Add begin for fix sometime phone will go to sleep when get detect event */
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 	wake_lock_init(&prtd->timeout_wake_lock, WAKE_LOCK_SUSPEND,
             "SVA timeout wake lock");
 #endif
@@ -315,7 +315,7 @@ static int msm_lsm_close(struct snd_pcm_substream *substream)
 
     pr_debug("%s\n", __func__);
 /* OPPO 2014-08-19 John.Xu@Audio.Driver Add begin for QCOM patch for SVA delay to de/register after native service being killed */
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
         if (prtd->lsm_client->started) {
             ret = q6lsm_stop(prtd->lsm_client, true);
             if (ret)
@@ -345,7 +345,7 @@ static int msm_lsm_close(struct snd_pcm_substream *substream)
 	q6lsm_close(prtd->lsm_client);
 	q6lsm_client_free(prtd->lsm_client);
 /* OPPO 2014-07-25 John.Xu@Audio.Driver Add begin for fix sometime phone will go to sleep when get detect event */
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
         if(prtd != NULL && &prtd->timeout_wake_lock != NULL) {
             wake_lock_destroy(&prtd->timeout_wake_lock);
             pr_debug("%s destroy timeout_wake_lock \n", __func__);

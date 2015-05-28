@@ -1424,7 +1424,7 @@ int adm_matrix_map(int session_id, int path, int num_copps,
 		ret = -EINVAL;
 		goto fail_cmd;
 	}
-#ifndef CONFIG_VENDOR_EDIT //John.Xu modified for waves effect not works
+#ifndef CONFIG_MACH_MSM8974_14001 //John.Xu modified for waves effect not works
 	if (perf_mode != ULTRA_LOW_LATENCY_PCM_MODE) {
 #else
 	if (!perf_mode) {
@@ -1749,7 +1749,7 @@ int adm_close(int port_id, int perf_mode)
 			goto fail_cmd;
 		}
 	}
-#ifndef CONFIG_VENDOR_EDIT //modified by John.Xu for Waves effect not works when open touch sound
+#ifndef CONFIG_MACH_MSM8974_14001 //modified by John.Xu for Waves effect not works when open touch sound
 	if (perf_mode != ULTRA_LOW_LATENCY_PCM_MODE) {
 #else
 	if (!perf_mode) {

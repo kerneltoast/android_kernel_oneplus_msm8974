@@ -164,16 +164,16 @@ int power_supply_set_supply_type(struct power_supply *psy,
 {
 	const union power_supply_propval ret = {supply_type,};
 
-#ifndef CONFIG_VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 /* jingchun.wang@Onlinerd.Driver, 2013/12/30  Modify for avoid race condition */
 	if (psy->set_property)
 		return psy->set_property(psy, POWER_SUPPLY_PROP_TYPE,
 								&ret);
-#else /*CONFIG_VENDOR_EDIT*/
+#else /*CONFIG_MACH_MSM8974_14001*/
 	if (psy->set_property)
 		return psy->set_property(psy, POWER_SUPPLY_PROP_POWER_NOW,
 								&ret);
-#endif /*CONFIG_VENDOR_EDIT*/
+#endif /*CONFIG_MACH_MSM8974_14001*/
 
 	return -ENXIO;
 }

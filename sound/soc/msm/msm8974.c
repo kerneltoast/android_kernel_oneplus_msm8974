@@ -34,7 +34,7 @@
 #include "../codecs/wcd9xxx-common.h"
 #include "../codecs/wcd9320.h"
 //OPPO 2013-12-13 liuyan add version recognition 
-#ifdef VENDOR_EDIT 
+#ifdef CONFIG_MACH_MSM8974_14001 
 #include <linux/pcb_version.h>
 #endif
 //liuyan add end
@@ -86,7 +86,7 @@ static void *adsp_state_notifier;
 
 #define ADSP_STATE_READY_TIMEOUT_MS 50
 //OPPO 2013-12-13 liuyan add  for dvt
-#ifdef VENDOR_EDIT 
+#ifdef CONFIG_MACH_MSM8974_14001 
 int pcb_version;
 #endif
 //liuyan add end
@@ -187,13 +187,13 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.mclk_rate = TAIKO_EXT_CLK_RATE,
 	.gpio = 0,
 	.gpio_irq = 0,
-#ifndef VENDOR_EDIT //luyan modify 2013-4-18
+#ifndef CONFIG_MACH_MSM8974_14001 //luyan modify 2013-4-18
 	.gpio_level_insert = 1,
 #else
 	.gpio_level_insert = 0,
 #endif
 	.detect_extn_cable = true,
-#ifdef VENDOR_EDIT //luyan modify micbias to dc
+#ifdef CONFIG_MACH_MSM8974_14001 //luyan modify micbias to dc
 	.micbias_enable_flags = 1 << MBHC_MICBIAS_ENABLE_THRESHOLD_HEADSET | 1<<MBHC_MICBIAS_ENABLE_REGULAR_HEADSET,
 #else
 	.micbias_enable_flags = 1 << MBHC_MICBIAS_ENABLE_THRESHOLD_HEADSET,
@@ -210,7 +210,7 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.hw_jack_type = SIX_POLE_JACK,
 
 /* OPPO 2013-10-22 liuyan Modify end */
-#ifdef VENDOR_EDIT  //liuyan add 2013-4-18
+#ifdef CONFIG_MACH_MSM8974_14001  //liuyan add 2013-4-18
        .hpmic_switch_gpio=0,
        .enable_spk_gpio=0,
 	.yda145_ctr_gpio=0,
@@ -232,7 +232,7 @@ struct msm_auxpcm_ctrl {
 
 struct msm8974_asoc_mach_data {
 //liuyan 2013-3-14 add,hp mic switch
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
        int hpmic_switch_gpio;
 #ifdef CONFIG_MACH_MSM8974_14001
 /* xiaojun.lv@Prd.AudioDrv,2014/2/10,add for 14001 regulator*/       
@@ -793,7 +793,7 @@ static const struct snd_soc_dapm_widget msm8974_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 //liuyan 2013-4-18 modify
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 	SND_SOC_DAPM_MIC("ANCRight Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("ANCLeft Headset Mic", NULL),
 #else
@@ -1648,7 +1648,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 //liuyan 2013-3-14 add,hpmic switch
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 #ifndef CONFIG_OPPO_MSM_14021
        struct msm8974_asoc_mach_data *mach_data;
 #endif       
@@ -1837,7 +1837,7 @@ static int msm8974_snd_startup(struct snd_pcm_substream *substream)
 		 substream->name, substream->stream);
 	return 0;
 }
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 /* xiaojun.lv@Prd.AudioDrv,2014/3/7,modify for 14001 headset input key's voltage range*/
 //liuyan 2013-3-13 change no_mic form 30 to 100,hs_max from 2400 to 2000
 //liuyan 2013-7-22 change button0 threshold form -50 to -70
@@ -1890,7 +1890,7 @@ void *def_taiko_mbhc_cal(void)
 	btn_low = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_V_BTN_LOW);
 	btn_high = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg,
 					       MBHC_BTN_DET_V_BTN_HIGH);
-#ifndef VENDOR_EDIT //liuyan 2013-12-10 modify the switch reange
+#ifndef CONFIG_MACH_MSM8974_14001 //liuyan 2013-12-10 modify the switch reange
 	btn_low[0] = -50; 
 	btn_high[0] = 20;
 	btn_low[1] = 21;
@@ -1924,7 +1924,7 @@ void *def_taiko_mbhc_cal(void)
 
 	return taiko_cal;
 }
-#else /* VENDOR_EDIT */
+#else /* CONFIG_MACH_MSM8974_14001 */
 void *def_taiko_mbhc_cal(void)
 {
 	void *taiko_cal;
@@ -1974,7 +1974,7 @@ void *def_taiko_mbhc_cal(void)
 	btn_low = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_V_BTN_LOW);
 	btn_high = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg,
 					       MBHC_BTN_DET_V_BTN_HIGH);
-#ifndef VENDOR_EDIT //liuyan 2013-12-10 modify the switch reange
+#ifndef CONFIG_MACH_MSM8974_14001 //liuyan 2013-12-10 modify the switch reange
 	btn_low[0] = -50; 
 	btn_high[0] = 20;
 	btn_low[1] = 21;
@@ -2008,7 +2008,7 @@ void *def_taiko_mbhc_cal(void)
 
 	return taiko_cal;
 }
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 static int msm_snd_hw_params(struct snd_pcm_substream *substream,
 			     struct snd_pcm_hw_params *params)
 {
@@ -3476,7 +3476,7 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 			ret);
 		goto err;
 	}
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 #ifdef CONFIG_MACH_MSM8974_14001
 /* xiaojun.lv@Prd.AudioDrv,2014/2/10,add for 14001 regulator*/
         pdata->cdc_spk= regulator_get(&pdev->dev, "cdc_spk");
@@ -3491,7 +3491,7 @@ static __devinit int msm8974_asoc_machine_probe(struct platform_device *pdev)
 		    mbhc_cfg.cdc_spk = pdata->cdc_spk;
 		}
 #endif
-#endif /*VENDOR_EDIT*/
+#endif /*CONFIG_MACH_MSM8974_14001*/
 
 	/* Parse Primary AUXPCM info from DT */
 	ret = msm8974_dtparse_auxpcm(pdev, &pdata->pri_auxpcm_ctrl,

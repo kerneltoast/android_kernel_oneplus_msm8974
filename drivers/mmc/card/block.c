@@ -47,13 +47,13 @@
 
 #include "queue.h"
 
-#ifdef VENDOR_EDIT 
+#ifdef CONFIG_MACH_MSM8974_14001 
 //Zhilong.Zhang@OnlineRd.Driver, 2013/10/24, Add for eMMC and DDR device information
 #include <mach/device_info.h>
 #include <linux/pcb_version.h>
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 /* OPPO 2014-11-06 sjc Add begin for T card problem */
 #include <linux/bitops.h>
 #endif
@@ -1495,12 +1495,12 @@ static inline void mmc_apply_rel_rw(struct mmc_blk_request *brq,
 	}
 }
 
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 #if 0 //sjc20141106 delete
 //Zhilong.Zhang@OnlineRd.Driver, 2013/12/28, Add for solve QT bug(ID:390597): Bad micro SD card cause the phone to suspend/wakeup abnormal
 static int bad_micro_sd_card = 0;
 #endif
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 
 #define CMD_ERRORS							\
 	(R1_OUT_OF_RANGE |	/* Command argument out of range */	\
@@ -1532,7 +1532,7 @@ static int mmc_blk_err_check(struct mmc_card *card,
 	if (brq->sbc.error || brq->cmd.error || brq->stop.error ||
 	    brq->data.error) {
 
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 #if 0 //sjc20141106 delete
 //Zhilong.Zhang@OnlineRd.Driver, 2013/12/28, Add for solve QT bug(ID:390597): Bad micro SD card cause the phone to suspend/wakeup abnormal
 		if ((card->host->index == 1) && bad_micro_sd_card) {
@@ -1542,7 +1542,7 @@ static int mmc_blk_err_check(struct mmc_card *card,
 			}
 		}
 #endif
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 		
 		switch (mmc_blk_cmd_recovery(card, req, brq, &ecc_err, &gen_err)) {
 		case ERR_RETRY:
@@ -1633,7 +1633,7 @@ static int mmc_blk_err_check(struct mmc_card *card,
 		       (unsigned)blk_rq_sectors(req),
 		       brq->cmd.resp[0], brq->stop.resp[0]);
 
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 #if 0 //sjc20141106 delete
 //Zhilong.Zhang@OnlineRd.Driver, 2013/12/28, Add for solve QT bug(ID:390597): Bad micro SD card cause the phone to suspend/wakeup abnormal
 		if ((card->host->index == 1) 
@@ -1642,7 +1642,7 @@ static int mmc_blk_err_check(struct mmc_card *card,
 			printk(KERN_ERR"%s: bad sd card had been detected.\n", __func__);
 		}
 #endif
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 
 		if (rq_data_dir(req) == READ) {
 			if (ecc_err)
@@ -2555,7 +2555,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 		areq = mmc_start_req(card->host, areq, (int *) &status);
 		if (!areq) {
 			if (status == MMC_BLK_NEW_REQUEST)
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 /* OPPO 2014-11-06 sjc Modify begin for T card problem */
 				set_bit(MMC_QUEUE_NEW_REQUEST, &mq->flags);
 #else
@@ -2581,7 +2581,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 				mmc_blk_reinsert_req(areq);
 			}
 			
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 /* OPPO 2014-11-06 sjc Modify begin for T card problem */
 			set_bit(MMC_QUEUE_URGENT_REQUEST, &mq->flags);
 #else
@@ -2761,7 +2761,7 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 			mmc_stop_bkops(card);
 	}
 
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 #if 0 //sjc20141106 delete
 //Zhilong.Zhang@OnlineRd.Driver, 2013/12/28, Add for solve QT bug(ID:390597): Bad micro SD card cause the phone to suspend/wakeup abnormal
 	if ((card->host->index == 1) && bad_micro_sd_card) {
@@ -2773,7 +2773,7 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 		}
 	}
 #endif
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 
 	ret = mmc_blk_part_switch(card, md);
 	if (ret) {
@@ -2786,7 +2786,7 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 
 	mmc_blk_write_packing_control(mq, req);
 
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 /* OPPO 2014-11-06 sjc Modify begin for T card problem */
 	clear_bit(MMC_QUEUE_NEW_REQUEST, &mq->flags);
 	clear_bit(MMC_QUEUE_URGENT_REQUEST, &mq->flags);
@@ -3240,7 +3240,7 @@ static const struct mmc_fixup blk_fixups[] =
 	END_FIXUP
 };
 
-#ifdef VENDOR_EDIT 
+#ifdef CONFIG_MACH_MSM8974_14001 
 //Zhilong.Zhang@OnlineRd.Driver, 2014/08/06, Add for mainboard device information
 struct manufacture_info mainboard_info;
 
@@ -3317,13 +3317,13 @@ static void mainboard_verify(void)
 			mainboard_info.manufacture = "UNKOWN";
 		}	
 }
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 
 static int mmc_blk_probe(struct mmc_card *card)
 {
 	struct mmc_blk_data *md, *part_md;
 	char cap_str[10];
-#ifdef VENDOR_EDIT 
+#ifdef CONFIG_MACH_MSM8974_14001 
 //Zhilong.Zhang@OnlineRd.Driver, 2013/10/24, Add for eMMC and DDR device information	
 	char * manufacturerid;
 	struct manufacture_info ddr_info_1 = {
@@ -3334,7 +3334,7 @@ static int mmc_blk_probe(struct mmc_card *card)
 		.version = "K3QF7F70DM",
 		.manufacture = "SAMSUNG",
 	};	
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 
 	/*
 	 * Check that the card supports the command class(es) we need.
@@ -3342,7 +3342,7 @@ static int mmc_blk_probe(struct mmc_card *card)
 	if (!(card->csd.cmdclass & CCC_BLOCK_READ))
 		return -ENODEV;
 
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
     mmc_mid = card->cid.manfid;//added by liwei  
 //Zhilong.Zhang@OnlineRd.Driver, 2013/10/24, Add for eMMC and DDR device information
 	switch (card->cid.manfid) {
@@ -3376,7 +3376,7 @@ static int mmc_blk_probe(struct mmc_card *card)
 		mainboard_verify();
 		register_device_proc("mainboard", mainboard_info.version, mainboard_info.manufacture);		
 	}
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 
 	md = mmc_blk_alloc(card);
 	if (IS_ERR(md))

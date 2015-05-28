@@ -1332,7 +1332,7 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	rc = vfe_dev->hw_info->vfe_ops.core_ops.reset_hw(vfe_dev,
 		ISP_RST_HARD, 1);
 /*likelong 2015.3.16 reset isp again if reset failed*/
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 	while((rc <= 0)&&retry_times)
 	{
 		pr_err("%s: reset isp failed, try again\n", __func__);

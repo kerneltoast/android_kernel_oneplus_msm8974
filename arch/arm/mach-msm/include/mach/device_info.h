@@ -1,6 +1,6 @@
 /**
  * Copyright 2008-2013 OPPO Mobile Comm Corp., Ltd, All rights reserved.
- * VENDOR_EDIT:
+ * CONFIG_MACH_MSM8974_14001:
  * FileName:devinfo.h
  * ModuleName:devinfo
  * Author: wangjc

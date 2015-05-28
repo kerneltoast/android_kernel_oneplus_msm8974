@@ -88,14 +88,14 @@ static void sdhci_dump_state(struct sdhci_host *host)
 		mmc->parent->power.disable_depth);
 }
 
-#ifdef VENDOR_EDIT //yixue.ge@BSP.drv 2014-06-04 modify for disable sdcard log
+#ifdef CONFIG_MACH_MSM8974_14001 //yixue.ge@BSP.drv 2014-06-04 modify for disable sdcard log
 static int flag = 0;
 #endif
 
 static void sdhci_dumpregs(struct sdhci_host *host)
 {
 
-#ifdef VENDOR_EDIT //yixue.ge@BSP.drv 2014-06-04 modify for disable sdcard log
+#ifdef CONFIG_MACH_MSM8974_14001 //yixue.ge@BSP.drv 2014-06-04 modify for disable sdcard log
 	if(!flag)
 		flag++;
 	else

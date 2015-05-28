@@ -1,6 +1,6 @@
 /************************************************************ 
 ** Copyright (C), 2008-2012, OPPO Mobile Comm Corp., Ltd
-** VENDOR_EDIT
+** CONFIG_MACH_MSM8974_14001
 ** File: - pcb_version.h
 * Description: head file for pcb_version.
 				

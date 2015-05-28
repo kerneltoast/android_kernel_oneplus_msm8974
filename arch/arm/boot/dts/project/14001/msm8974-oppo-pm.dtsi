@@ -33,7 +33,7 @@
 
 &pm8941_chg {
 	status = "ok";
-        /*VENDOR_EDIT*/
+        /*CONFIG_MACH_MSM8974_14001*/
 	/*wangjc enable charger*/
 	/*qcom,charging-disabled;*/
 	/*wangjc end.*/

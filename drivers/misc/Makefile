@@ -71,7 +71,7 @@ obj-$(CONFIG_QFP_FUSE) += qfp_fuse.o
 obj-$(CONFIG_TI_DRV2667) += ti_drv2667.o
 obj-$(CONFIG_QPNP_MISC) += qpnp-misc.o
 #OPPO 2013-02-21 yuyi add begin for breath led
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 obj-$(CONFIG_SN3193_SLED)  += shineled/
-#endif VENDOR_EDIT
+#endif CONFIG_MACH_MSM8974_14001
 #OPPO 2013-02-21 yuyi add end

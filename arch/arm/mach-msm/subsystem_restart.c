@@ -42,10 +42,10 @@
 
 #include "smd_private.h"
 
-#ifdef VENDOR_EDIT 
+#ifdef CONFIG_MACH_MSM8974_14001 
 //Shu.Liu@OnlineRd.Driver, 2014/02/10, modified for restart level debug
 #include <linux/proc_fs.h>
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 
 static int enable_debug;
 module_param(enable_debug, int, S_IRUGO | S_IWUSR);
@@ -506,7 +506,7 @@ static struct subsys_device *find_subsys(const char *str)
 	return dev ? to_subsys(dev) : NULL;
 }
 
-#ifdef VENDOR_EDIT 
+#ifdef CONFIG_MACH_MSM8974_14001 
 //Shu.Liu@OnlineRd.Driver, 2014/02/10, modified for restart level debug
 
 static int val = 0;
@@ -586,7 +586,7 @@ static int init_restart_level_all_node( void )
 	}
 	return ret;
 }
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 
 static int subsys_start(struct subsys_device *subsys)
 {
@@ -858,9 +858,9 @@ int subsystem_restart_dev(struct subsys_device *dev)
 		name, restart_levels[dev->restart_level]);
 
 /* OPPO 2013-12-04 liushu added begin for independ the modem and AP.*/
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
       //dev->restart_level = RESET_SUBSYS_COUPLED;
-#endif /*VENDOR_EDIT*/
+#endif /*CONFIG_MACH_MSM8974_14001*/
 /* OPPO 2013-12-04 liushu added end for independ the modem and AP.*/
 	switch (dev->restart_level) {
 
@@ -1380,12 +1380,12 @@ static int __init subsys_restart_init(void)
 	if (ret)
 		goto err_soc;
 
-#ifdef VENDOR_EDIT 
+#ifdef CONFIG_MACH_MSM8974_14001 
 //Shu.Liu@OnlineRd.Driver, 2014/02/10, modified for restart level debug
 	ret = init_restart_level_all_node();
 	if (ret)
 		printk("The restart level all node init failed.\n");
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 	return 0;
 
 err_soc:

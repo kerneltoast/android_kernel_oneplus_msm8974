@@ -27,7 +27,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/delay.h>
 /*Added by Jinshui.Liu@Camera 20140827 start for individual flashlight*/
-#ifdef CONFIG_VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 #include <asm/uaccess.h>
 #include <linux/pcb_version.h>
 #include <linux/proc_fs.h>
@@ -507,7 +507,7 @@ static u32 kpdbl_master_period_us;
 DECLARE_BITMAP(kpdbl_leds_in_use, NUM_KPDBL_LEDS);
 static bool is_kpdbl_master_turn_on;
 /*Added by Jinshui.Liu@Camera 20140624 start for flash led test*/
-#ifdef CONFIG_VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 bool flash_blink_state;
 int led_flash_state;
 #endif
@@ -2411,7 +2411,7 @@ static ssize_t blink_store(struct device *dev,
 }
 
 /*Added by Jinshui.Liu@Camera 20140624 start for flash led test*/
-#ifdef CONFIG_VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 static void led_flash_blink_work(struct work_struct *work)
 {
     //int brightness;
@@ -2517,7 +2517,7 @@ static DEVICE_ATTR(blink, 0664, NULL, blink_store);
 
 static struct attribute *led_attrs[] = {
     /*Added by Jinshui.Liu@Camera 20140624 start for flash led test*/
-#ifdef CONFIG_VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
     &dev_attr_flash_blink.attr,
 #endif
 /*Added by Jinshui.Liu@Camera 20140624 end*/

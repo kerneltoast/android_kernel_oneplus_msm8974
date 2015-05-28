@@ -4904,7 +4904,7 @@ static struct clk_lookup msm_clocks_8974_common[] __initdata = {
 	CLK_LOOKUP("xo",  cxo_ehci_host_clk.c,            "msm_ehci_host"),
 	CLK_LOOKUP("xo",        cxo_lpm_clk.c,        "fc4281d0.qcom,mpm"),
 /*ruanbanmao@oneplus 2015-01-27 modify begin for 14001 nfc pn65T*/	
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 	CLK_LOOKUP("ref_clk",  cxo_d1_a_pin.c,                   "6-000e"),
 #endif
 /*ruanbanmao@oneplus 2015-01-27 modify end for 14001 nfc pn65T*/
@@ -4965,7 +4965,7 @@ static struct clk_lookup msm_clocks_8974_common[] __initdata = {
 	CLK_LOOKUP("core_clk", gcc_blsp2_qup1_i2c_apps_clk.c, ""),
 	CLK_LOOKUP("core_clk", gcc_blsp2_qup1_spi_apps_clk.c, ""),
 /*OPPO yuyi 2013-03-22 delete begin for nfc pn65T*/	
-#ifndef CONFIG_VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 	CLK_LOOKUP("core_clk", gcc_blsp2_qup2_i2c_apps_clk.c, ""),
 	CLK_LOOKUP("core_clk", gcc_blsp2_qup2_spi_apps_clk.c, ""),
 	CLK_LOOKUP("core_clk", gcc_blsp2_qup3_i2c_apps_clk.c, ""),

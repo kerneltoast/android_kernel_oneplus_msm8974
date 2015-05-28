@@ -101,7 +101,7 @@ struct msm_actuator_ctrl_t {
 	uint32_t subdev_id;
 	struct msm_actuator_vreg vreg_cfg;
 	/*muyuezhong,2015/02/07,Add for close camera click*/
-	#ifdef VENDOR_EDIT
+	#ifdef CONFIG_MACH_MSM8974_14001
     	uint16_t current_lens_pos;
     	uint32_t hw_params;
 	#endif

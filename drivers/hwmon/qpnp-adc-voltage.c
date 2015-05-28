@@ -1105,7 +1105,7 @@ int32_t qpnp_vadc_conv_seq_request(struct qpnp_vadc_chip *vadc,
 	}
 
 	if (vadc->vadc_poll_eoc) {
-#ifdef CONFIG_VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 /* OPPO 2014-06-18 sjc Modify for increasing efficiency */
 		while (status1 != QPNP_VADC_STATUS1_EOC) {
 			rc = qpnp_vadc_read_reg(vadc, QPNP_VADC_STATUS1,
@@ -1147,7 +1147,7 @@ int32_t qpnp_vadc_conv_seq_request(struct qpnp_vadc_chip *vadc,
 				goto fail_unlock;
 			}
 		}
-#endif /* CONFIG_VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 	} else {
 		rc = wait_for_completion_timeout(
 					&vadc->adc->adc_rslt_completion,

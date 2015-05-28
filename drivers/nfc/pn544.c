@@ -1,6 +1,6 @@
 /***********************************************************
 ** Copyright (C), 2008-2012, OPPO Mobile Comm Corp., Ltd
-** VENDOR_EDIT
+** CONFIG_MACH_MSM8974_14001
 ** File: - pn544.c
 * Description: Source file for nfc driver.
 				
@@ -490,7 +490,7 @@ static int pn544_probe(struct i2c_client *client, const struct i2c_device_id *id
 	pn544_disable_irq(pn544_dev);
 	i2c_set_clientdata(client, pn544_dev);
 
-	#ifdef CONFIG_VENDOR_EDIT
+	#ifdef CONFIG_MACH_MSM8974_14001
 	/*liuhd add for sleep current because of nfc  2013-12-17*/
 	//gpio_set_value(pn544_dev->ven_gpio, 1);
 	//msleep(10);

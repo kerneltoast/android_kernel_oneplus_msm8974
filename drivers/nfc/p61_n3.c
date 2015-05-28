@@ -1,6 +1,6 @@
 /***********************************************************
 ** Copyright (C), 2008-2012, OPPO Mobile Comm Corp., Ltd
-** VENDOR_EDIT
+** CONFIG_MACH_MSM8974_14001
 ** File: - p61.c
 * Description: Source file for PN65T spi driver.
 				

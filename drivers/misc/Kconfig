@@ -674,8 +674,8 @@ source "drivers/misc/lis3lv02d/Kconfig"
 source "drivers/misc/carma/Kconfig"
 source "drivers/misc/altera-stapl/Kconfig"
 #OPPO 2013-02-21 yuyi add begin for rgb led
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 source "drivers/misc/shineled/Kconfig"
-#endif VENDOR_EDIT
+#endif CONFIG_MACH_MSM8974_14001
 #OPPO 2013-02-21 yuyi add end for rgb led
 endmenu

@@ -805,7 +805,7 @@ int sdhci_msm_execute_tuning(struct sdhci_host *host, u32 opcode)
 	struct mmc_ios	ios = host->mmc->ios;
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 	//add  by liwei for add status command search after tuning, 20150319
 	struct mmc_command status_cmd = {0};
 	int failed_get_status = 0;
@@ -937,7 +937,7 @@ retry:
 kfree:
 	kfree(data_buf);
 out:
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 
 	//add  by liwei for add status command search after tuning, 20150319
     if(is_samsung64g && (mmc_mid == 0x15)){

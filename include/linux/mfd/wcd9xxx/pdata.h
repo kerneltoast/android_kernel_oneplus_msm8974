@@ -174,7 +174,7 @@ struct wcd9xxx_pdata {
 	struct wcd9xxx_ocp_setting ocp;
 	struct wcd9xxx_regulator regulator[WCD9XXX_MAX_REGULATOR];
 	/*liuyan 2013-11-26 add for getting the hpmic regulator*/
-	#ifdef VENDOR_EDIT
+	#ifdef CONFIG_MACH_MSM8974_14001
        struct regulator *cdc_hpmic_switch;
 	int hpmic_regulator_count;
 	#endif

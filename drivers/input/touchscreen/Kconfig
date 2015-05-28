@@ -1031,7 +1031,7 @@ config TOUCHSCREEN_GT9XX
           If unsure, say N.
 
 
-#ifdef CONFIG_VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 #OPPO yubin 2013-10-10 add begin for tp
 config TOUCHSCREEN_SYNAPTICS_S3508_I2C_RMI
 	tristate "Synaptics s3508 i2c touchscreen"

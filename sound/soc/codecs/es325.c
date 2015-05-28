@@ -46,7 +46,7 @@
 #include <linux/qpnp/clkdiv.h>
 #include <linux/of_gpio.h>
 //liuyan add for dvt
-#ifdef CONFIG_VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
 #include <mach/sps.h>
 #include"../../../drivers/slimbus/slim-msm.h"
 #include <linux/pcb_version.h>
@@ -2368,7 +2368,7 @@ static ssize_t es325_txhex_set(struct device *dev,
 	return count;
 }
 //liuyan 2013-12-19 modify for cta
-#ifndef CONFIG_VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 static DEVICE_ATTR(txhex, 0777, es325_txhex_show, es325_txhex_set);
 #else
 static DEVICE_ATTR(txhex, 0644, es325_txhex_show, es325_txhex_set);
@@ -5238,7 +5238,7 @@ static int es325_clk_ctl(int enable)
 static struct esxxx_platform_data *es325_populate_dt_pdata(struct device *dev, struct slim_device *slim_ifd)
 {
 	struct esxxx_platform_data *pdata;
-	#ifdef CONFIG_VENDOR_EDIT
+	#ifdef CONFIG_MACH_MSM8974_14001
 	//liuyan 2013-9-11 add for es325
 	//static int count_mclk=0;
 	//int ret;
@@ -5252,7 +5252,7 @@ static struct esxxx_platform_data *es325_populate_dt_pdata(struct device *dev, s
 
 	es325_dt_parse_slim_interface_dev_info(dev, slim_ifd);
 
-	#ifdef CONFIG_VENDOR_EDIT
+	#ifdef CONFIG_MACH_MSM8974_14001
 	//liuyan 2013-9-11 add for es325 reset gpio
 	if(dev->parent){
 	    parent_ctl=dev_get_drvdata(dev->parent);
@@ -5299,7 +5299,7 @@ static struct esxxx_platform_data *es325_populate_dt_pdata(struct device *dev, s
 */
 
 	//liuyan 2013-9-11 add for es325
-	#ifndef CONFIG_VENDOR_EDIT
+	#ifndef CONFIG_MACH_MSM8974_14001
 	pdata->mclk_gpio= of_get_named_gpio(dev->of_node,
 				"adnc,es325-mclk-gpios", 0);
 	printk("ES325 gpio:%d\n",pdata->mclk_gpio);
@@ -5609,7 +5609,7 @@ static int es325_slim_probe(struct slim_device *sbdev)
 
 	dev_dbg(&sbdev->dev, "%s(): reset_gpio = %d\n", __func__,
 		pdata->reset_gpio);
-	#ifndef CONFIG_VENDOR_EDIT
+	#ifndef CONFIG_MACH_MSM8974_14001
 	//liuyan 2013-9-11 del for es325 gpio
 	rc = gpio_request(pdata->reset_gpio, "es325_reset");
 	if (rc < 0) {
@@ -5713,7 +5713,7 @@ wakeup_gpio_direction_error:
 	gpio_free(pdata->wakeup_gpio);
 wakeup_gpio_request_error:
 //liuyan 2013-9-11 del for es325
-#ifndef CONFIG_VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 //reset_gpio_direction_error:
 //	gpio_free(pdata->reset_gpio);
 //reset_gpio_request_error:
@@ -5875,7 +5875,7 @@ static __init int es325_init(void)
 {
 	int ret = 0;
       //liuyan add for dvt
-     #ifdef CONFIG_VENDOR_EDIT
+     #ifdef CONFIG_MACH_MSM8974_14001
      int pcb_version;
      #endif
      //liuyan add end
@@ -5888,7 +5888,7 @@ static __init int es325_init(void)
 #else
 	pr_info("%s(): slim_driver_register()", __func__);
        //liuyan add for dvt
-      #ifdef CONFIG_VENDOR_EDIT
+      #ifdef CONFIG_MACH_MSM8974_14001
       pcb_version=get_pcb_version();
       printk("%s:pcb version:%d\n",__func__,pcb_version);
       if(pcb_version==HW_VERSION__10){

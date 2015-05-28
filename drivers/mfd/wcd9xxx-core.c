@@ -1519,7 +1519,7 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 	if (slim->dev.of_node) {
 		dev_info(&slim->dev, "Platform data from device tree\n");
 		pdata = wcd9xxx_populate_dt_pdata(&slim->dev);
-#ifdef VENDOR_EDIT
+#ifdef CONFIG_MACH_MSM8974_14001
        //liuyan add hpmic 
        pdata->hpmic_regulator_count=0;
 	pdata->cdc_hpmic_switch= regulator_get(&slim->dev, "cdc-hpmic_switch-1");

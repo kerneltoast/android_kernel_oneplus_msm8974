@@ -3,7 +3,7 @@
 ** Copyright (C), 2000-2012, OPPO Mobile Comm Corp., Ltd
 ** All rights reserved.
 ** 
-** VENDOR_EDIT
+** CONFIG_MACH_MSM8974_14001
 ** 
 ** Description: -
 ** 
@@ -215,7 +215,7 @@ static int SN3193_SetBreathTime_sled(u8 Ch, u8 T0,u8 T1,u8 T2,u8 T3,u8 T4)
 {	
          int ret=0;
 /*OPPO yuyi 2014-01-07 modify begin for abandon red and green light*/
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 //ZhangPan@Mobile Phone Software Dept.Driver, 2013/12/19, Modify for blue_led
 	  switch ( Ch)
 	  {
@@ -236,11 +236,11 @@ static int SN3193_SetBreathTime_sled(u8 Ch, u8 T0,u8 T1,u8 T2,u8 T3,u8 T4)
 			break;
 	
 		}
-#else /* VENDOR_EDIT */
+#else /* CONFIG_MACH_MSM8974_14001 */
 	SN3193_write_reg(0x0c,T0<<4);	  
 	SN3193_write_reg(0x12,(T1<<5)|(T2<<1));	
 	SN3193_write_reg(0x18,(T3<<5)|(T4<<1));
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 /*OPPO yuyi 2014-01-07 modify end  for abandon red and green light*/
 	return ret;
 }
@@ -281,13 +281,13 @@ static int SN3193_SetBrightness(int color,u8 brightness)
 {
 	int ret=0;
 /*OPPO yuyi 2014-01-07 modify begin for abandon red and green light*/
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 //ZhangPan@Mobile Phone Software Dept.Driver, 2013/12/19, Modify for blue_led
 	SN3193_write_reg(0x04+color, brightness);
-#else /* VENDOR_EDIT */
+#else /* CONFIG_MACH_MSM8974_14001 */
     	SN3193_write_reg(0x06, brightness);
 	brightness_time = 0;
-#endif /* VENDOR_EDIT */	
+#endif /* CONFIG_MACH_MSM8974_14001 */	
 /*OPPO yuyi 2014-01-07 modify end for abandon red and green light*/
 return ret;
 }
@@ -384,12 +384,12 @@ static long SN3193_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			r = -EFAULT;
 		}
 /*OPPO yuyi 2014-01-07 modify begin for abandon red and green light*/
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 //ZhangPan@Mobile Phone Software Dept.Driver, 2013/12/19, Modify for blue_led
 		RGBctl = RGBctl |0x01;
-#else /* VENDOR_EDIT */
+#else /* CONFIG_MACH_MSM8974_14001 */
 		RGBctl = RGBctl |0x04;
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 /*OPPO yuyi 2014-01-07 modify end for abandon red and green light*/
 		SN3193_TurnOnOut_sled(RGBctl);
 		SN3193_SetBrightness(RED_SLED,val);
@@ -401,12 +401,12 @@ static long SN3193_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			r = -EFAULT;
 		}
 /*OPPO yuyi 2014-01-07 modify begin for abandon red and green light*/
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 //ZhangPan@Mobile Phone Software Dept.Driver, 2013/12/19, Modify for blue_led
 		RGBctl = RGBctl |0x02;
-#else /* VENDOR_EDIT */
+#else /* CONFIG_MACH_MSM8974_14001 */
 		RGBctl = RGBctl |0x04;
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 /*OPPO yuyi 2014-01-07 modify end for abandon red and green light*/
 		SN3193_TurnOnOut_sled(RGBctl);
 		SN3193_SetBrightness(GREEN_SLED,val);
@@ -440,12 +440,12 @@ static long SN3193_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			r = -EFAULT;
 		}
 /*OPPO yuyi 2014-01-07 modify begin for abandon red and green light*/
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 //ZhangPan@Mobile Phone Software Dept.Driver, 2013/12/19, Modify for blue_led
 		SN3193_TurnOnOut_sled((1<<RED_SLED));
-#else /* VENDOR_EDIT */
+#else /* CONFIG_MACH_MSM8974_14001 */
 		SN3193_TurnOnOut_sled((1<<BLUE_SLED));
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 /*OPPO yuyi 2014-01-07 modify end for abandon red and green light*/
 		SN3193_SetBrightness(RED_SLED,val);
 
@@ -464,12 +464,12 @@ static long SN3193_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			r = -EFAULT;
 		}
 /*OPPO yuyi 2014-01-07 modify begin for abandon red and green light*/
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 //ZhangPan@Mobile Phone Software Dept.Driver, 2013/12/19, Modify for blue_led
 		SN3193_TurnOnOut_sled((1<<GREEN_SLED));
-#else /* VENDOR_EDIT */
+#else /* CONFIG_MACH_MSM8974_14001 */
 		SN3193_TurnOnOut_sled((1<<BLUE_SLED));
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 /*OPPO yuyi 2014-01-07 modify end for abandon red and green light*/
 		SN3193_SetBrightness(GREEN_SLED,val);
 
@@ -494,7 +494,7 @@ static long SN3193_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		SN3193_workmod_sled(1); 
 		SN3193_setCurrent_sled(0x01);	 
 /*OPPO yuyi 2014-01-09 modify begin for different effect*/	
-	#ifndef  VENDOR_EDIT
+	#ifndef  CONFIG_MACH_MSM8974_14001
 		SN3193_SetBreathTime_sled(3,0,1,2,1,4);
 	#else
 		SN3193_SetBreathTime_sled(3,0,4,3,4,5);
@@ -505,24 +505,24 @@ static long SN3193_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;	
 	case SET_RED_OFF:
 /*OPPO yuyi 2014-01-07 modify begin for abandon red and green light*/
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 //ZhangPan@Mobile Phone Software Dept.Driver, 2013/12/19, Modify for blue_led
 		RGBctl = RGBctl & 0xFE;
-#else /* VENDOR_EDIT */
+#else /* CONFIG_MACH_MSM8974_14001 */
 		RGBctl = RGBctl & 0xFB;
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 /*OPPO yuyi 2014-01-07 modify end for abandon red and green light*/
 		SN3193_TurnOnOut_sled(RGBctl);
 		SN3193_upData_sled();
 		break;
 	case SET_GREEN_OFF:
 /*OPPO yuyi 2014-01-07 modify begin for abandon red and green light*/
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 //ZhangPan@Mobile Phone Software Dept.Driver, 2013/12/19, Modify for blue_led
 		RGBctl = RGBctl & 0xFD;
-#else /* VENDOR_EDIT */
+#else /* CONFIG_MACH_MSM8974_14001 */
 		RGBctl = RGBctl & 0xFB;
-#endif /* VENDOR_EDIT */
+#endif /* CONFIG_MACH_MSM8974_14001 */
 /*OPPO yuyi 2014-01-07 modify end for abandon red and green light*/
 		SN3193_TurnOnOut_sled(RGBctl);
 		SN3193_upData_sled();
@@ -985,11 +985,11 @@ static void lcds_set_brightness(struct led_classdev *led_cdev,
 	}
 /*OPPO yuyi 2014-01-07 add begin for abandon red and green light*/
 	if(brightness_time == 3) {
-		#ifndef VENDOR_EDIT
+		#ifndef CONFIG_MACH_MSM8974_14001
 			SN3193_SetBrightness(RED_SLED,color_R);
 			SN3193_SetBrightness(GREEN_SLED,color_G);
 			SN3193_SetBrightness(BLUE_SLED,color_B);	
-		#else  /*VENDOR_EDIT*/
+		#else  /*CONFIG_MACH_MSM8974_14001*/
 			SN3193_SetBrightness(BLUE_SLED,(color_R + color_G + color_B));
 		#endif
 	}
@@ -1163,7 +1163,7 @@ static int __init SN3193_dev_init(void)
 		goto err_exit;
 	}
 /*OPPO yuyi 2014-02-20 modified begin for SN3193 would not be used*/
-#ifndef VENDOR_EDIT
+#ifndef CONFIG_MACH_MSM8974_14001
 	pr_info("yanghai shineld driver init\n");
 	return i2c_add_driver(&SN3193_driver);
 #else

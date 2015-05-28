@@ -3,7 +3,7 @@
 ** Copyright (C), 2000-2012, OPPO Mobile Comm Corp., Ltd
 ** All rights reserved.
 ** 
-** VENDOR_EDIT
+** CONFIG_MACH_MSM8974_14001
 ** 
 ** Description: -
 ** 

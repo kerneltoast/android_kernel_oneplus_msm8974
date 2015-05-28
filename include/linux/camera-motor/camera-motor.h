@@ -1,6 +1,6 @@
 /***********************************************************
 ** Copyright (C), 2008-2012, OPPO Mobile Comm Corp., Ltd
-** VENDOR_EDIT
+** CONFIG_MACH_MSM8974_14001
 ** File: - camera-motor.h
 * Description: Head file for camera-motor.
 *           To define camera-motor array and register address.
