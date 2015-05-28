@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,13 +46,7 @@
 #define PP_CLK_CFG_OFF 0
 #define PP_CLK_CFG_ON 1
 
-#define MEM_PROTECT_SD_CTRL 0xF
-
 #define OVERLAY_MAX 10
-
-struct sd_ctrl_req {
-	unsigned int enable;
-} __attribute__ ((__packed__));
 
 static int mdss_mdp_overlay_free_fb_pipe(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd);
@@ -65,26 +59,6 @@ static inline u32 left_lm_w_from_mfd(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	return ctl->mixer_left->width;
-}
-
-static int mdss_mdp_overlay_sd_ctrl(struct msm_fb_data_type *mfd,
-					unsigned int enable)
-{
-	struct sd_ctrl_req request;
-	unsigned int resp = -1;
-	int ret = 0;
-	pr_debug("sd_ctrl %u\n", enable);
-
-	request.enable = enable;
-
-	ret = scm_call(SCM_SVC_MP, MEM_PROTECT_SD_CTRL,
-		&request, sizeof(request), &resp, sizeof(resp));
-	pr_debug("scm_call MEM_PROTECT_SD_CTRL(%u): ret=%d, resp=%x",
-				enable, ret, resp);
-	if (ret)
-		return ret;
-
-	return resp;
 }
 
 static int mdss_mdp_overlay_get(struct msm_fb_data_type *mfd,
@@ -886,18 +860,24 @@ static void __mdss_mdp_overlay_free_list_add(struct msm_fb_data_type *mfd,
 	memset(buf, 0, sizeof(*buf));
 }
 
-static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
+/**
+ * mdss_mdp_overlay_cleanup() - handles cleanup after frame commit
+ * @mfd:           Msm frame buffer data structure for the associated fb
+ * @destroy_pipes: list of pipes that should be destroyed as part of cleanup
+ *
+ * Goes through destroy_pipes list and ensures they are ready to be destroyed
+ * and cleaned up. Also cleanup of any pipe buffers after flip.
+ */
+static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
+		struct list_head *destroy_pipes)
 {
 	struct mdss_mdp_pipe *pipe, *tmp;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	bool recovery_mode = false;
-	LIST_HEAD(destroy_pipes);
 
 	mutex_lock(&mdp5_data->list_lock);
-	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_cleanup, list) {
-		list_move(&pipe->list, &destroy_pipes);
-
+	list_for_each_entry(pipe, destroy_pipes, list) {
 		/* make sure pipe fetch has been halted before freeing buffer */
 		if (mdss_mdp_pipe_fetch_halt(pipe)) {
 			/*
@@ -932,7 +912,7 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd)
 		}
 	}
 
-	list_for_each_entry_safe(pipe, tmp, &destroy_pipes, list) {
+	list_for_each_entry_safe(pipe, tmp, destroy_pipes, list) {
 		/*
 		 * in case of secure UI, the buffer needs to be released as
 		 * soon as session is closed.
@@ -1119,7 +1099,7 @@ static int __overlay_queue_pipes(struct msm_fb_data_type *mfd)
 		 * When secure display is enabled, if there is a non secure
 		 * display pipe, skip that
 		 */
-		if ((mdp5_data->sd_enabled) &&
+		if (mdss_get_sd_client_cnt() &&
 			!(pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)) {
 			pr_warn("Non secure pipe during secure display: %u: %08X, skip\n",
 					pipe->num, pipe->flags);
@@ -1202,11 +1182,12 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 				struct mdp_display_commit *data)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	struct mdss_mdp_pipe *pipe;
+	struct mdss_mdp_pipe *pipe, *tmp;
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	int ret = 0;
 	int sd_in_pipe = 0;
 	bool need_cleanup = false;
+	LIST_HEAD(destroy_pipes);
 
 	ATRACE_BEGIN(__func__);
 	if (ctl->shared_lock) {
@@ -1233,6 +1214,7 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 			mutex_unlock(ctl->shared_lock);
 		return ret;
 	}
+	ctl->bw_pending = 0;
 	mutex_lock(&mdp5_data->list_lock);
 
 	/*
@@ -1250,8 +1232,13 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	 * secure display session
 	 */
 	if (!sd_in_pipe && mdp5_data->sd_enabled) {
-		if (0 == mdss_mdp_overlay_sd_ctrl(mfd, 0))
+		/* disable the secure display on last client */
+		if (mdss_get_sd_client_cnt() == 1)
+			ret = mdss_mdp_secure_display_ctrl(0);
+		if (!ret) {
+			mdss_update_sd_client(mdp5_data->mdata, false);
 			mdp5_data->sd_enabled = 0;
+		}
 	}
 
 	if (!ctl->shared_lock)
@@ -1268,9 +1255,10 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	 * Setup pipe in solid fill before unstaging,
 	 * to ensure no fetches are happening after dettach or reattach.
 	 */
-	list_for_each_entry(pipe, &mdp5_data->pipes_cleanup, list) {
+	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_cleanup, list) {
 		mdss_mdp_pipe_queue_data(pipe, NULL);
 		mdss_mdp_mixer_pipe_unstage(pipe);
+		list_move(&pipe->list, &destroy_pipes);
 		need_cleanup = true;
 	}
 
@@ -1306,17 +1294,20 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	mutex_lock(&mdp5_data->ov_lock);
 
 	if (ret == 0) {
-		if (!mdp5_data->sd_enabled && (sd_in_pipe == 1)) {
-			ret = mdss_mdp_overlay_sd_ctrl(mfd, 1);
-			if (ret == 0)
+		if (!mdp5_data->sd_enabled && sd_in_pipe) {
+			if (!mdss_get_sd_client_cnt())
+				ret = mdss_mdp_secure_display_ctrl(1);
+			if (!ret) {
 				mdp5_data->sd_enabled = 1;
+				mdss_update_sd_client(mdp5_data->mdata, true);
+			}
 		}
 	}
 
 	mdss_fb_update_notify_update(mfd);
 commit_fail:
 	ATRACE_BEGIN("overlay_cleanup");
-	mdss_mdp_overlay_cleanup(mfd);
+	mdss_mdp_overlay_cleanup(mfd, &destroy_pipes);
 	ATRACE_END("overlay_cleanup");
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_FLUSHED);
@@ -1540,6 +1531,8 @@ static void mdss_mdp_overlay_force_cleanup(struct msm_fb_data_type *mfd)
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
+	struct mdss_mdp_pipe *pipe, *tmp;
+	LIST_HEAD(destroy_pipes);
 	int ret;
 
 	pr_debug("forcing cleanup to unset dma pipes on fb%d\n", mfd->index);
@@ -1554,7 +1547,12 @@ static void mdss_mdp_overlay_force_cleanup(struct msm_fb_data_type *mfd)
 			mdss_mdp_display_wait4comp(ctl);
 	}
 
-	mdss_mdp_overlay_cleanup(mfd);
+	mutex_lock(&mdp5_data->list_lock);
+	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_cleanup, list) {
+		list_move(&pipe->list, &destroy_pipes);
+	}
+	mutex_unlock(&mdp5_data->list_lock);
+	mdss_mdp_overlay_cleanup(mfd, &destroy_pipes);
 }
 
 static void mdss_mdp_overlay_force_dma_cleanup(struct mdss_data_type *mdata)
