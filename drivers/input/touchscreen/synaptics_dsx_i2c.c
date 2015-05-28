@@ -2218,8 +2218,6 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	rmi4_data->i2c_client = client;
 	rmi4_data->current_page = MASK_8BIT;
 	rmi4_data->board = platform_data;
-	atomic_set(&rmi4_data->irq_enabled, 0);
-	atomic_set(&rmi4_data->sensor_awake, 0);
 
 	rmi4_data->i2c_read = synaptics_rmi4_i2c_read;
 	rmi4_data->i2c_write = synaptics_rmi4_i2c_write;
@@ -2494,13 +2492,11 @@ static void synaptics_rmi4_suspend(struct device *dev)
 	if (atomic_read(&rmi4_data->syna_use_gesture)) {
 		synaptics_enable_gesture(rmi4_data, true);
 		synaptics_enable_irqwake(rmi4_data, true);
-		goto exit;
+	} else {
+		synaptics_rmi4_irq_enable(rmi4_data, false);
+		synaptics_rmi4_sensor_sleep(rmi4_data);
+		synaptics_rmi4_free_fingers(rmi4_data);
 	}
-
-	synaptics_rmi4_irq_enable(rmi4_data, false);
-	synaptics_rmi4_sensor_sleep(rmi4_data);
-	synaptics_rmi4_free_fingers(rmi4_data);
-exit:
 	mutex_unlock(&rmi4_data->rmi4_pm_mutex);
 }
 
