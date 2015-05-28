@@ -189,6 +189,8 @@ extern struct device_node *of_get_parent(const struct device_node *node);
 extern struct device_node *of_get_next_parent(struct device_node *node);
 extern struct device_node *of_get_next_child(const struct device_node *node,
 					     struct device_node *prev);
+extern struct device_node *of_get_child_by_name(const struct device_node *node,
+					const char *name);
 extern struct device_node *of_get_next_available_child(
 	const struct device_node *node, struct device_node *prev);
 
