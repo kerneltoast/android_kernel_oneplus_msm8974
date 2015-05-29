@@ -40,6 +40,7 @@ static bool freqs_available __read_mostly;
 static unsigned int boost_freq[3] __read_mostly;
 static unsigned int boost_ms[3];
 static unsigned int enabled __read_mostly;
+static unsigned int user_minfreq;
 
 static void cpu_boost(unsigned int nr_cpus)
 {
@@ -113,6 +114,11 @@ static int cpu_do_boost(struct notifier_block *nb, unsigned long val, void *data
 	if (!freqs_available)
 		return NOTIFY_OK;
 
+	if (user_minfreq) {
+		policy->min = user_minfreq;
+		return NOTIFY_OK;
+	}
+
 	b_freq = boost_freq[policy->cpu];
 
 	switch (b->boost_state) {
@@ -137,7 +143,8 @@ static struct notifier_block cpu_do_boost_nb = {
 static void cpu_iboost_input_event(struct input_handle *handle, unsigned int type,
 		unsigned int code, int value)
 {
-	if (boost_running || !enabled || !freqs_available)
+	if (boost_running || !enabled ||
+		!freqs_available || user_minfreq)
 		return;
 
 	boost_running = true;
@@ -259,6 +266,27 @@ static ssize_t enabled_write(struct device *dev,
 	return size;
 }
 
+static ssize_t userspace_minfreq_write(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct boost_policy *b;
+	unsigned int data, cpu;
+	int ret = sscanf(buf, "%u", &data);
+
+	if (ret != 1)
+		return -EINVAL;
+
+	user_minfreq = data;
+
+	for (cpu = 0; cpu < 3; cpu++) {
+		b = &per_cpu(boost_info, cpu);
+		cancel_delayed_work_sync(&b->restore_work);
+		queue_delayed_work(boost_wq, &b->restore_work, 0);
+	}
+
+	return size;
+}
+
 static ssize_t boost_freqs_read(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -271,12 +299,23 @@ static ssize_t enabled_read(struct device *dev,
 	return sprintf(buf, "%u\n", enabled);
 }
 
-static DEVICE_ATTR(boost_freqs, 0644, boost_freqs_read, boost_freqs_write);
-static DEVICE_ATTR(enabled, 0644, enabled_read, enabled_write);
+static ssize_t userspace_minfreq_read(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%u\n", user_minfreq);
+}
+
+static DEVICE_ATTR(boost_freqs, S_IRUGO | S_IWUGO,
+			boost_freqs_read, boost_freqs_write);
+static DEVICE_ATTR(enabled, S_IRUGO | S_IWUGO,
+			enabled_read, enabled_write);
+static DEVICE_ATTR(userspace_minfreq, S_IRUGO | S_IWUGO,
+			userspace_minfreq_read, userspace_minfreq_write);
 
 static struct attribute *cpu_iboost_attr[] = {
 	&dev_attr_boost_freqs.attr,
 	&dev_attr_enabled.attr,
+	&dev_attr_userspace_minfreq.attr,
 	NULL
 };
 
