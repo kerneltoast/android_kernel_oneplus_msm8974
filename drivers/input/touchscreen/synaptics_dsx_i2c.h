@@ -68,6 +68,15 @@ enum {
 	TP_VENDOR_YOUNGFAST,
 };
 
+#define TP_TYPE_MAX	2	//we only use wintek and tpk now.
+
+enum LCD_TYPE {
+	LCD_VENDOR_JDI,
+	LCD_VENDOR_TRULY,
+	LCD_VENDOR_SHARP,
+	LCD_TYPE_MAX
+};
+
 /*
  * struct synaptics_rmi4_fn_desc - function descriptor fields in PDT
  * @query_base_addr: base address for query registers
