@@ -98,6 +98,7 @@ struct synaptics_rmi4_f01_device_status {
 		struct {
 			unsigned char status_code:4;
 			unsigned char reserved:2;
+			unsigned char flash_prog:1;
 			unsigned char unconfigured:1;
 		} __packed;
 		unsigned char data[1];
@@ -462,9 +463,12 @@ exit:
 #define SYNA_ADDR_F12_2D_CTRL23      0x1D
 #define SYNA_ADDR_F12_2D_CTRL10      0x16
 
+extern int rmi4_fw_module_init(bool insert);
+
 static struct synaptics_rmi4_data *syna_rmi4_data;
 static struct regulator *vdd_regulator;
 static struct regulator *vdd_regulator_i2c;
+static char synaptics_vendor_str[32];
 static unsigned int syna_lcd_ratio1;
 static unsigned int syna_lcd_ratio2;
 
@@ -1227,7 +1231,7 @@ static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data, 
 	}
 
 	status.data[0] = data[0];
-	if (status.unconfigured) {
+	if (status.unconfigured && !status.flash_prog) {
 		pr_notice("%s: spontaneous reset detected\n", __func__);
 		synaptics_rmi4_reinit_device(rmi4_data);
 		return;
@@ -1597,6 +1601,15 @@ static int synaptics_rmi4_check_status(struct synaptics_rmi4_data *rmi4_data,
 	if (timeout != CHECK_STATUS_TIMEOUT_MS)
 		*was_in_bl_mode = true;
 
+	if (status.flash_prog == 1) {
+		rmi4_data->flash_prog_mode = true;
+		pr_notice("%s: In flash prog mode, status = 0x%02x\n",
+				__func__,
+				status.status_code);
+	} else {
+		rmi4_data->flash_prog_mode = false;
+	}
+
 	ret = synaptics_rmi4_i2c_read(rmi4_data,
 			rmi4_data->f01_data_base_addr + 1,
 			&intr_status,
@@ -1746,6 +1759,9 @@ rescan_pdt:
 					if (was_in_bl_mode)
 						goto rescan_pdt;
 
+					if (rmi4_data->flash_prog_mode)
+						goto flash_prog_mode;
+
 					break;
 				case SYNAPTICS_RMI4_F12:
 					if (rmi_fd.intr_src_count == 0)
@@ -1778,6 +1794,7 @@ rescan_pdt:
 		}
 	}
 
+flash_prog_mode:
 	rmi4_data->num_of_intr_regs = (intr_count + 7) / 8;
 	dev_dbg(&rmi4_data->i2c_client->dev,
 			"%s: Number of interrupt registers = %d\n",
@@ -2147,6 +2164,54 @@ exit:
 }
 EXPORT_SYMBOL(synaptics_rmi4_new_function);
 
+static int synaptics_rmi4_get_vendorid1(int id1, int id2, int id3)
+{
+	if (id1 == 0 && id2 == 0 && id3 == 0)
+		return TP_VENDOR_TPK;
+	else if (id1 == 0 && id2 == 1 && id3 == 0)
+		return TP_VENDOR_WINTEK;
+
+	return 0;
+}
+
+/* return firmware version and string */
+extern int synaptics_rmi4_get_firmware_version(int vendor_id);
+static char *synaptics_rmi4_get_vendorstring(int id) {
+	char *pconst = "UNKNOWN";
+
+	switch(id) {
+		case TP_VENDOR_WINTEK:
+			pconst = "WINTEK";
+			break;
+		case TP_VENDOR_TPK:
+			pconst = "TPK";
+			break;
+		case TP_VENDOR_TRULY:
+			pconst = "TRULY";
+			break;
+		case TP_VENDOR_YOUNGFAST:
+			pconst = "YOUNGFAST";
+			break;
+	}
+
+	sprintf(synaptics_vendor_str, "%s(%x)", pconst,
+			synaptics_rmi4_get_firmware_version(id));
+
+	return synaptics_vendor_str;
+}
+
+static void synaptics_rmi4_get_vendorid(struct synaptics_rmi4_data *rmi4_data)
+{
+	int vendor_id;
+
+	vendor_id = synaptics_rmi4_get_vendorid1(gpio_get_value(rmi4_data->id_gpio),
+			gpio_get_value(rmi4_data->wakeup_gpio), 0);
+
+	rmi4_data->vendor_id = vendor_id;
+	synaptics_rmi4_get_vendorstring(rmi4_data->vendor_id);
+	pr_err("[syna] vendor id: %x\n", vendor_id);
+}
+
 static int fb_notifier_callback(struct notifier_block *p,
 		unsigned long event, void *data)
 {
@@ -2249,6 +2314,9 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	dsx_platformdata.irq_gpio = rmi4_data->irq_gpio;
 	dsx_platformdata.reset_gpio = rmi4_data->reset_gpio;
 	rmi4_data->irq = rmi4_data->i2c_client->irq;
+	msleep(500);
+	synaptics_rmi4_get_vendorid(rmi4_data);
+	msleep(150);
 	synaptics_ts_init_area(rmi4_data);
 	i2c_set_clientdata(client, rmi4_data);
 
@@ -2312,6 +2380,15 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	queue_delayed_work(exp_data.workqueue,
 			&exp_data.work,
 			msecs_to_jiffies(200));
+	rmi4_fw_module_init(true);
+	while(1) {
+		msleep(50);
+		if (rmi4_data->bcontinue) {
+			rmi4_fw_module_init(false);
+			break;
+		}
+	}
+
 	return ret;
 
 err_enable_irq:

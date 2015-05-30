@@ -215,6 +215,7 @@ struct synaptics_rmi4_data {
 	int irq;
 	int sensor_max_x;
 	int sensor_max_y;
+	bool flash_prog_mode;
 	bool sensor_sleep;
 	bool stay_awake;
 	int (*i2c_read)(struct synaptics_rmi4_data *pdata, unsigned short addr,
