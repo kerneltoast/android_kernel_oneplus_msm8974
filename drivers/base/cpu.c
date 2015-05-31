@@ -16,8 +16,7 @@
 
 #include "base.h"
 
-static unsigned int cpu_unplug_disable;
-module_param(cpu_unplug_disable, uint, 0644);
+static unsigned int unplug_disable_cnt;
 
 struct bus_type cpu_subsys = {
 	.name = "cpu",
@@ -47,7 +46,7 @@ static ssize_t __ref store_online(struct device *dev,
 	cpu_hotplug_driver_lock();
 	switch (buf[0]) {
 	case '0':
-		if (cpu_unplug_disable) {
+		if (unplug_disable_cnt) {
 			ret = -EINVAL;
 			break;
 		}
@@ -216,6 +215,25 @@ static ssize_t print_cpus_offline(struct device *dev,
 }
 static DEVICE_ATTR(offline, 0444, print_cpus_offline, NULL);
 
+/* refcount to prevent userspace from unplugging CPUs */
+static ssize_t unplug_disable_write(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	unsigned int data;
+	int ret = sscanf(buf, "%u", &data);
+
+	if (ret != 1)
+		return -EINVAL;
+
+	if (data)
+		unplug_disable_cnt++;
+	else
+		unplug_disable_cnt--;
+
+	return size;
+}
+static DEVICE_ATTR(unplug_disable, 0644, NULL, unplug_disable_write);
+
 static void cpu_device_release(struct device *dev)
 {
 	/*
@@ -296,6 +314,7 @@ static struct attribute *cpu_root_attrs[] = {
 #ifdef CONFIG_ARCH_HAS_CPU_AUTOPROBE
 	&dev_attr_modalias.attr,
 #endif
+	&dev_attr_unplug_disable.attr,
 	NULL
 };
 
