@@ -16,9 +16,6 @@
 
 #include "base.h"
 
-static unsigned int cpu_unplug_disable;
-module_param(cpu_unplug_disable, uint, 0644);
-
 struct bus_type cpu_subsys = {
 	.name = "cpu",
 	.dev_name = "cpu",
@@ -47,10 +44,6 @@ static ssize_t __ref store_online(struct device *dev,
 	cpu_hotplug_driver_lock();
 	switch (buf[0]) {
 	case '0':
-		if (cpu_unplug_disable) {
-			ret = -EINVAL;
-			break;
-		}
 		ret = cpu_down(cpu->dev.id);
 		if (!ret)
 			kobject_uevent(&dev->kobj, KOBJ_OFFLINE);
