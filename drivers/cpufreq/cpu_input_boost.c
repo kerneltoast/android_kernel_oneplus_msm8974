@@ -84,7 +84,7 @@ static void __cpuinit cpu_boost_main(struct work_struct *work)
 
 	for (cpu = 0; cpu < num_cpus_to_boost; cpu++) {
 		b = &per_cpu(boost_info, cpu);
-		queue_delayed_work(boost_wq, &b->restore_work,
+		queue_delayed_work_on(0, boost_wq, &b->restore_work,
 					msecs_to_jiffies(boost_ms[cpu]));
 	}
 }
@@ -148,7 +148,7 @@ static void cpu_iboost_input_event(struct input_handle *handle, unsigned int typ
 		return;
 
 	boost_running = true;
-	queue_work(boost_wq, &boost_work);
+	queue_work_on(0, boost_wq, &boost_work);
 }
 
 static int cpu_iboost_input_connect(struct input_handler *handler,
@@ -281,7 +281,7 @@ static ssize_t userspace_minfreq_write(struct device *dev,
 	for (cpu = 0; cpu < 3; cpu++) {
 		b = &per_cpu(boost_info, cpu);
 		cancel_delayed_work_sync(&b->restore_work);
-		queue_delayed_work(boost_wq, &b->restore_work, 0);
+		queue_delayed_work_on(0, boost_wq, &b->restore_work, 0);
 	}
 
 	return size;
