@@ -590,6 +590,19 @@ module_param_string(table_name, table_name, sizeof(table_name), S_IRUGO);
 static unsigned int pvs_config_ver;
 module_param(pvs_config_ver, uint, S_IRUGO);
 
+#ifdef CONFIG_MACH_MSM8974_14001
+static unsigned int no_cpu_underclock;
+
+static int __init get_cpu_underclock(char *cpu_uc)
+{
+	if (!strncmp(cpu_uc, "1", 1))
+		no_cpu_underclock = 1;
+
+	return 0;
+}
+__setup("no_underclock=", get_cpu_underclock);
+#endif
+
 static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -707,9 +720,11 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_MACH_MSM8974_14001
 	/* Underclock to 1958MHz for better UX */
-	while (rows--) {
-		if (freq[rows - 1] == 1958400000)
-			break;
+	if (!no_cpu_underclock) {
+		while (rows--) {
+			if (freq[rows - 1] == 1958400000)
+				break;
+		}
 	}
 #endif
 
