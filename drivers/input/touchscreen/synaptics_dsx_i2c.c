@@ -89,12 +89,9 @@ static int synaptics_rmi4_i2c_write(struct synaptics_rmi4_data *rmi4_data,
 static int synaptics_rmi4_f12_set_enables(struct synaptics_rmi4_data *rmi4_data,
 		unsigned short ctrl28);
 
-static void synaptics_rmi4_free_fingers(struct synaptics_rmi4_data *rmi4_data);
 static void synaptics_rmi4_reinit_device(struct synaptics_rmi4_data *rmi4_data);
 static void synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data,
 		unsigned short f01_cmd_base_addr);
-
-static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data);
 
 struct synaptics_rmi4_f01_device_status {
 	union {
@@ -340,7 +337,7 @@ static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 		if (i2c_transfer(rmi4_data->i2c_client->adapter, msg, 2) == 2)
 			break;
 
-		msleep(25);
+		msleep(20);
 	}
 
 	if (retry == SYN_I2C_RETRY_TIMES) {
@@ -395,7 +392,7 @@ static int synaptics_rmi4_i2c_write(struct synaptics_rmi4_data *rmi4_data,
 		if (i2c_transfer(rmi4_data->i2c_client->adapter, msg, 1) == 1)
 			break;
 
-		msleep(25);
+		msleep(20);
 	}
 
 	if (retry == SYN_I2C_RETRY_TIMES) {
@@ -475,6 +472,7 @@ static char synaptics_vendor_str[32];
 static unsigned int syna_lcd_ratio1;
 static unsigned int syna_lcd_ratio2;
 
+static struct mutex syna_pm_mutex;
 static struct workqueue_struct *syna_pm_wq;
 static struct work_struct syna_resume_work;
 static struct work_struct syna_suspend_work;
@@ -2005,9 +2003,6 @@ static void synaptics_rmi4_reinit_device(struct synaptics_rmi4_data *rmi4_data)
 	mutex_lock(&rmi4_data->rmi4_reset_mutex);
 	synaptics_rmi4_free_fingers(rmi4_data);
 	synaptics_rmi4_set_configured(rmi4_data);
-
-	if (atomic_read(&rmi4_data->syna_use_gesture))
-		synaptics_enable_gesture(rmi4_data, true);
 	mutex_unlock(&rmi4_data->rmi4_reset_mutex);
 }
 
@@ -2235,9 +2230,6 @@ static void synaptics_rmi4_sensor_sleep(struct synaptics_rmi4_data *rmi4_data)
 	unsigned char device_ctrl;
 	int ret;
 
-	if (!atomic_read(&rmi4_data->sensor_awake))
-		return;
-
 	ret = synaptics_rmi4_i2c_read(rmi4_data,
 			rmi4_data->f01_ctrl_base_addr,
 			&device_ctrl,
@@ -2256,14 +2248,10 @@ static void synaptics_rmi4_sensor_sleep(struct synaptics_rmi4_data *rmi4_data)
 			rmi4_data->f01_ctrl_base_addr,
 			&device_ctrl,
 			sizeof(device_ctrl));
-	if (ret) {
+	if (ret)
 		dev_err(&rmi4_data->input_dev->dev,
 				"%s: Failed to enter sleep mode\n",
 				__func__);
-		return;
-	}
-
-	atomic_set(&rmi4_data->sensor_awake, 0);
 }
 
 /**
@@ -2278,9 +2266,6 @@ static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
 	unsigned char device_ctrl;
 	unsigned char no_sleep_setting = rmi4_data->no_sleep_setting;
 	int ret;
-
-	if (atomic_read(&rmi4_data->sensor_awake))
-		return;
 
 	ret = synaptics_rmi4_i2c_read(rmi4_data,
 			rmi4_data->f01_ctrl_base_addr,
@@ -2300,14 +2285,10 @@ static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
 			rmi4_data->f01_ctrl_base_addr,
 			&device_ctrl,
 			sizeof(device_ctrl));
-	if (ret) {
+	if (ret)
 		dev_err(&rmi4_data->input_dev->dev,
 				"%s: Failed to wake from sleep mode\n",
 				__func__);
-		return;
-	}
-
-	atomic_set(&rmi4_data->sensor_awake, 1);
 }
 
 /**
@@ -2322,9 +2303,11 @@ static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
  */
 static void synaptics_rmi4_suspend(struct work_struct *work)
 {
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(&syna_rmi4_data->input_dev->dev);
+	struct synaptics_rmi4_data *rmi4_data;
 
-	mutex_lock(&rmi4_data->rmi4_pm_mutex);
+	mutex_lock(&syna_pm_mutex);
+	rmi4_data = dev_get_drvdata(&syna_rmi4_data->input_dev->dev);
+
 	atomic_set(&rmi4_data->syna_use_gesture,
 			atomic_read(&rmi4_data->double_tap_enable) ||
 			atomic_read(&rmi4_data->camera_enable) ||
@@ -2339,7 +2322,7 @@ static void synaptics_rmi4_suspend(struct work_struct *work)
 		synaptics_rmi4_sensor_sleep(rmi4_data);
 		synaptics_rmi4_free_fingers(rmi4_data);
 	}
-	mutex_unlock(&rmi4_data->rmi4_pm_mutex);
+	mutex_unlock(&syna_pm_mutex);
 }
 
 /**
@@ -2354,9 +2337,11 @@ static void synaptics_rmi4_suspend(struct work_struct *work)
  */
 static void synaptics_rmi4_resume(struct work_struct *work)
 {
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(&syna_rmi4_data->input_dev->dev);
+	struct synaptics_rmi4_data *rmi4_data;
 
-	mutex_lock(&rmi4_data->rmi4_pm_mutex);
+	mutex_lock(&syna_pm_mutex);
+	rmi4_data = dev_get_drvdata(&syna_rmi4_data->input_dev->dev);
+
 	if (atomic_read(&rmi4_data->syna_use_gesture)) {
 		synaptics_enable_gesture(rmi4_data, false);
 		synaptics_enable_irqwake(rmi4_data, false);
@@ -2364,16 +2349,14 @@ static void synaptics_rmi4_resume(struct work_struct *work)
 
 	synaptics_rmi4_sensor_wake(rmi4_data);
 	synaptics_rmi4_irq_enable(rmi4_data, true);
-
-	if (!atomic_read(&rmi4_data->syna_use_gesture))
-		synaptics_rmi4_reinit_device(rmi4_data);
+	synaptics_rmi4_reinit_device(rmi4_data);
 
 	atomic_set(&rmi4_data->syna_use_gesture,
 			atomic_read(&rmi4_data->double_tap_enable) ||
 			atomic_read(&rmi4_data->camera_enable) ||
 			atomic_read(&rmi4_data->music_enable) ||
 			atomic_read(&rmi4_data->flashlight_enable) ? 1 : 0);
-	mutex_unlock(&rmi4_data->rmi4_pm_mutex);
+	mutex_unlock(&syna_pm_mutex);
 }
 
 static int fb_notifier_callback(struct notifier_block *p,
@@ -2461,8 +2444,8 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	syna_lcd_ratio2 = 100;
 
 	mutex_init(&rmi4_data->rmi4_io_ctrl_mutex);
-	mutex_init(&rmi4_data->rmi4_pm_mutex);
 	mutex_init(&rmi4_data->rmi4_reset_mutex);
+	mutex_init(&syna_pm_mutex);
 
 	syna_rmi4_data = rmi4_data;
 	client->dev.platform_data = &dsx_platformdata;
@@ -2523,7 +2506,6 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 
 	synaptics_ts_init_virtual_key(rmi4_data);
 	synaptics_rmi4_init_touchpanel_proc();
-	synaptics_rmi4_sensor_wake(rmi4_data);
 
 	ret = synaptics_rmi4_irq_enable(rmi4_data, true);
 	if (ret)
