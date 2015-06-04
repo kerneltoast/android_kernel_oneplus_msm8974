@@ -94,8 +94,6 @@ static void synaptics_rmi4_reinit_device(struct synaptics_rmi4_data *rmi4_data);
 static void synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data,
 		unsigned short f01_cmd_base_addr);
 
-static void synaptics_rmi4_suspend(struct device *dev);
-static void synaptics_rmi4_resume(struct device *dev);
 static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data);
 
 struct synaptics_rmi4_f01_device_status {
@@ -476,6 +474,10 @@ static struct regulator *vdd_regulator_i2c;
 static char synaptics_vendor_str[32];
 static unsigned int syna_lcd_ratio1;
 static unsigned int syna_lcd_ratio2;
+
+static struct workqueue_struct *syna_pm_wq;
+static struct work_struct syna_resume_work;
+static struct work_struct syna_suspend_work;
 
 /***** For virtual key definition begin *******************/
 enum tp_vkey_enum {
@@ -2221,6 +2223,159 @@ static void synaptics_rmi4_get_vendorid(struct synaptics_rmi4_data *rmi4_data)
 	pr_err("[syna] vendor id: %x\n", vendor_id);
 }
 
+/**
+ * synaptics_rmi4_sensor_sleep()
+ *
+ * Called by synaptics_rmi4_early_suspend() and synaptics_rmi4_suspend().
+ *
+ * This function stops finger data acquisition and puts the sensor to sleep.
+ */
+static void synaptics_rmi4_sensor_sleep(struct synaptics_rmi4_data *rmi4_data)
+{
+	unsigned char device_ctrl;
+	int ret;
+
+	if (!atomic_read(&rmi4_data->sensor_awake))
+		return;
+
+	ret = synaptics_rmi4_i2c_read(rmi4_data,
+			rmi4_data->f01_ctrl_base_addr,
+			&device_ctrl,
+			sizeof(device_ctrl));
+	if (ret) {
+		dev_err(&rmi4_data->input_dev->dev,
+				"%s: Failed to enter sleep mode\n",
+				__func__);
+		return;
+	}
+
+	device_ctrl = (device_ctrl & ~MASK_3BIT);
+	device_ctrl = (NO_SLEEP_OFF | SENSOR_SLEEP);
+
+	ret = synaptics_rmi4_i2c_write(rmi4_data,
+			rmi4_data->f01_ctrl_base_addr,
+			&device_ctrl,
+			sizeof(device_ctrl));
+	if (ret) {
+		dev_err(&rmi4_data->input_dev->dev,
+				"%s: Failed to enter sleep mode\n",
+				__func__);
+		return;
+	}
+
+	atomic_set(&rmi4_data->sensor_awake, 0);
+}
+
+/**
+ * synaptics_rmi4_sensor_wake()
+ *
+ * Called by synaptics_rmi4_resume() and synaptics_rmi4_late_resume().
+ *
+ * This function wakes the sensor from sleep.
+ */
+static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
+{
+	unsigned char device_ctrl;
+	unsigned char no_sleep_setting = rmi4_data->no_sleep_setting;
+	int ret;
+
+	if (atomic_read(&rmi4_data->sensor_awake))
+		return;
+
+	ret = synaptics_rmi4_i2c_read(rmi4_data,
+			rmi4_data->f01_ctrl_base_addr,
+			&device_ctrl,
+			sizeof(device_ctrl));
+	if (ret) {
+		dev_err(&rmi4_data->input_dev->dev,
+				"%s: Failed to wake from sleep mode\n",
+				__func__);
+		return;
+	}
+
+	device_ctrl = (device_ctrl & ~MASK_3BIT);
+	device_ctrl = (device_ctrl | no_sleep_setting | NORMAL_OPERATION);
+
+	ret = synaptics_rmi4_i2c_write(rmi4_data,
+			rmi4_data->f01_ctrl_base_addr,
+			&device_ctrl,
+			sizeof(device_ctrl));
+	if (ret) {
+		dev_err(&rmi4_data->input_dev->dev,
+				"%s: Failed to wake from sleep mode\n",
+				__func__);
+		return;
+	}
+
+	atomic_set(&rmi4_data->sensor_awake, 1);
+}
+
+/**
+ * synaptics_rmi4_suspend()
+ *
+ * Called by the kernel during the suspend phase when the system
+ * enters suspend.
+ *
+ * This function stops finger data acquisition and puts the sensor to
+ * sleep (if not already done so during the early suspend phase),
+ * disables the interrupt, and turns off the power to the sensor.
+ */
+static void synaptics_rmi4_suspend(struct work_struct *work)
+{
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(&syna_rmi4_data->input_dev->dev);
+
+	mutex_lock(&rmi4_data->rmi4_pm_mutex);
+	atomic_set(&rmi4_data->syna_use_gesture,
+			atomic_read(&rmi4_data->double_tap_enable) ||
+			atomic_read(&rmi4_data->camera_enable) ||
+			atomic_read(&rmi4_data->music_enable) ||
+			atomic_read(&rmi4_data->flashlight_enable) ? 1 : 0);
+
+	if (atomic_read(&rmi4_data->syna_use_gesture)) {
+		synaptics_enable_gesture(rmi4_data, true);
+		synaptics_enable_irqwake(rmi4_data, true);
+	} else {
+		synaptics_rmi4_irq_enable(rmi4_data, false);
+		synaptics_rmi4_sensor_sleep(rmi4_data);
+		synaptics_rmi4_free_fingers(rmi4_data);
+	}
+	mutex_unlock(&rmi4_data->rmi4_pm_mutex);
+}
+
+/**
+ * synaptics_rmi4_resume()
+ *
+ * Called by the kernel during the resume phase when the system
+ * wakes up from suspend.
+ *
+ * This function turns on the power to the sensor, wakes the sensor
+ * from sleep, enables the interrupt, and starts finger data
+ * acquisition.
+ */
+static void synaptics_rmi4_resume(struct work_struct *work)
+{
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(&syna_rmi4_data->input_dev->dev);
+
+	mutex_lock(&rmi4_data->rmi4_pm_mutex);
+	if (atomic_read(&rmi4_data->syna_use_gesture)) {
+		synaptics_enable_gesture(rmi4_data, false);
+		synaptics_enable_irqwake(rmi4_data, false);
+	}
+
+	synaptics_rmi4_sensor_wake(rmi4_data);
+	synaptics_rmi4_irq_enable(rmi4_data, true);
+
+	if (!atomic_read(&rmi4_data->syna_use_gesture))
+		synaptics_rmi4_reinit_device(rmi4_data);
+
+	atomic_set(&rmi4_data->syna_use_gesture,
+			atomic_read(&rmi4_data->double_tap_enable) ||
+			atomic_read(&rmi4_data->camera_enable) ||
+			atomic_read(&rmi4_data->music_enable) ||
+			atomic_read(&rmi4_data->flashlight_enable) ? 1 : 0);
+	mutex_unlock(&rmi4_data->rmi4_pm_mutex);
+}
+
 static int fb_notifier_callback(struct notifier_block *p,
 		unsigned long event, void *data)
 {
@@ -2228,21 +2383,21 @@ static int fb_notifier_callback(struct notifier_block *p,
 	int ev;
 
 	if (event != FB_EVENT_BLANK)
-		return 0;
+		return NOTIFY_OK;
 
 	ev = (*(int *)evdata->data);
 
 	if (ev == syna_rmi4_data->old_status)
-		return 0;
+		return NOTIFY_OK;
 
 	if (ev)
-		synaptics_rmi4_suspend(&syna_rmi4_data->input_dev->dev);
+		queue_work(syna_pm_wq, &syna_suspend_work);
 	else
-		synaptics_rmi4_resume(&syna_rmi4_data->input_dev->dev);
+		queue_work(syna_pm_wq, &syna_resume_work);
 
 	syna_rmi4_data->old_status = ev;
 
-	return 0;
+	return NOTIFY_OK;
 }
 
 /**
@@ -2389,6 +2544,11 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	queue_delayed_work(exp_data.workqueue,
 			&exp_data.work,
 			msecs_to_jiffies(200));
+
+	syna_pm_wq = alloc_workqueue("synaptics_pm_wq", WQ_HIGHPRI, 0);
+	INIT_WORK(&syna_resume_work, synaptics_rmi4_resume);
+	INIT_WORK(&syna_suspend_work, synaptics_rmi4_suspend);
+
 	rmi4_fw_module_init(true);
 	while(1) {
 		msleep(50);
@@ -2465,159 +2625,6 @@ static int __devexit synaptics_rmi4_remove(struct i2c_client *client)
 	kfree(rmi4_data);
 
 	return 0;
-}
-
-/**
- * synaptics_rmi4_sensor_sleep()
- *
- * Called by synaptics_rmi4_early_suspend() and synaptics_rmi4_suspend().
- *
- * This function stops finger data acquisition and puts the sensor to sleep.
- */
-static void synaptics_rmi4_sensor_sleep(struct synaptics_rmi4_data *rmi4_data)
-{
-	unsigned char device_ctrl;
-	int ret;
-
-	if (!atomic_read(&rmi4_data->sensor_awake))
-		return;
-
-	ret = synaptics_rmi4_i2c_read(rmi4_data,
-			rmi4_data->f01_ctrl_base_addr,
-			&device_ctrl,
-			sizeof(device_ctrl));
-	if (ret) {
-		dev_err(&rmi4_data->input_dev->dev,
-				"%s: Failed to enter sleep mode\n",
-				__func__);
-		return;
-	}
-
-	device_ctrl = (device_ctrl & ~MASK_3BIT);
-	device_ctrl = (NO_SLEEP_OFF | SENSOR_SLEEP);
-
-	ret = synaptics_rmi4_i2c_write(rmi4_data,
-			rmi4_data->f01_ctrl_base_addr,
-			&device_ctrl,
-			sizeof(device_ctrl));
-	if (ret) {
-		dev_err(&rmi4_data->input_dev->dev,
-				"%s: Failed to enter sleep mode\n",
-				__func__);
-		return;
-	}
-
-	atomic_set(&rmi4_data->sensor_awake, 0);
-}
-
-/**
- * synaptics_rmi4_sensor_wake()
- *
- * Called by synaptics_rmi4_resume() and synaptics_rmi4_late_resume().
- *
- * This function wakes the sensor from sleep.
- */
-static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
-{
-	unsigned char device_ctrl;
-	unsigned char no_sleep_setting = rmi4_data->no_sleep_setting;
-	int ret;
-
-	if (atomic_read(&rmi4_data->sensor_awake))
-		return;
-
-	ret = synaptics_rmi4_i2c_read(rmi4_data,
-			rmi4_data->f01_ctrl_base_addr,
-			&device_ctrl,
-			sizeof(device_ctrl));
-	if (ret) {
-		dev_err(&rmi4_data->input_dev->dev,
-				"%s: Failed to wake from sleep mode\n",
-				__func__);
-		return;
-	}
-
-	device_ctrl = (device_ctrl & ~MASK_3BIT);
-	device_ctrl = (device_ctrl | no_sleep_setting | NORMAL_OPERATION);
-
-	ret = synaptics_rmi4_i2c_write(rmi4_data,
-			rmi4_data->f01_ctrl_base_addr,
-			&device_ctrl,
-			sizeof(device_ctrl));
-	if (ret) {
-		dev_err(&rmi4_data->input_dev->dev,
-				"%s: Failed to wake from sleep mode\n",
-				__func__);
-		return;
-	}
-
-	atomic_set(&rmi4_data->sensor_awake, 1);
-}
-
-/**
- * synaptics_rmi4_suspend()
- *
- * Called by the kernel during the suspend phase when the system
- * enters suspend.
- *
- * This function stops finger data acquisition and puts the sensor to
- * sleep (if not already done so during the early suspend phase),
- * disables the interrupt, and turns off the power to the sensor.
- */
-static void synaptics_rmi4_suspend(struct device *dev)
-{
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
-
-	mutex_lock(&rmi4_data->rmi4_pm_mutex);
-	atomic_set(&rmi4_data->syna_use_gesture,
-			atomic_read(&rmi4_data->double_tap_enable) ||
-			atomic_read(&rmi4_data->camera_enable) ||
-			atomic_read(&rmi4_data->music_enable) ||
-			atomic_read(&rmi4_data->flashlight_enable) ? 1 : 0);
-
-	if (atomic_read(&rmi4_data->syna_use_gesture)) {
-		synaptics_enable_gesture(rmi4_data, true);
-		synaptics_enable_irqwake(rmi4_data, true);
-	} else {
-		synaptics_rmi4_irq_enable(rmi4_data, false);
-		synaptics_rmi4_sensor_sleep(rmi4_data);
-		synaptics_rmi4_free_fingers(rmi4_data);
-	}
-	mutex_unlock(&rmi4_data->rmi4_pm_mutex);
-}
-
-/**
- * synaptics_rmi4_resume()
- *
- * Called by the kernel during the resume phase when the system
- * wakes up from suspend.
- *
- * This function turns on the power to the sensor, wakes the sensor
- * from sleep, enables the interrupt, and starts finger data
- * acquisition.
- */
-static void synaptics_rmi4_resume(struct device *dev)
-{
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
-
-	mutex_lock(&rmi4_data->rmi4_pm_mutex);
-	if (atomic_read(&rmi4_data->syna_use_gesture)) {
-		synaptics_enable_gesture(rmi4_data, false);
-		synaptics_enable_irqwake(rmi4_data, false);
-	}
-
-	synaptics_rmi4_sensor_wake(rmi4_data);
-	synaptics_rmi4_irq_enable(rmi4_data, true);
-
-	if (!atomic_read(&rmi4_data->syna_use_gesture))
-		synaptics_rmi4_reinit_device(rmi4_data);
-
-	atomic_set(&rmi4_data->syna_use_gesture,
-			atomic_read(&rmi4_data->double_tap_enable) ||
-			atomic_read(&rmi4_data->camera_enable) ||
-			atomic_read(&rmi4_data->music_enable) ||
-			atomic_read(&rmi4_data->flashlight_enable) ? 1 : 0);
-	mutex_unlock(&rmi4_data->rmi4_pm_mutex);
 }
 
 static const struct i2c_device_id synaptics_rmi4_id_table[] = {
