@@ -1249,10 +1249,7 @@ static void wcd9xxx_clsh_state_lo(struct snd_soc_codec *codec,
 {
 	pr_debug("%s: enter %s, buck_mv %d\n", __func__,
 		 is_enable ? "enable" : "disable", clsh_d->buck_mv);
-#ifdef CONFIG_MACH_MSM8974_14001
-/* liuyan@Onlinerd.driver, 2014/04/30  Add for pop soud when output from speaker and headset tegother */
-	pr_debug("class state: %d\n", clsh_d->state);
-#endif /*CONFIG_MACH_MSM8974_14001*/
+
 	if (is_enable) {
 #ifdef CONFIG_MACH_MSM8974_14001
 /* liuyan@Onlinerd.driver, 2014/04/30  Add for pop soud when output from speaker and headset tegother */
