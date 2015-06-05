@@ -34,7 +34,6 @@ struct boost_policy {
 static DEFINE_PER_CPU(struct boost_policy, boost_info);
 static struct workqueue_struct *boost_wq;
 static struct work_struct boost_work;
-static struct mutex input_hndlr_mutex;
 
 static bool boost_running;
 static bool freqs_available __read_mostly;
@@ -96,13 +95,8 @@ static void __cpuinit cpu_restore_main(struct work_struct *work)
 							restore_work.work);
 	cpu_unboost(b);
 
-	if (b->cpu)
-		return;
-
-	/* Boost is finished on all CPUs */
-	mutex_lock(&input_hndlr_mutex);
-	boost_running = false;
-	mutex_unlock(&input_hndlr_mutex);
+	if (!b->cpu)
+		boost_running = false;
 }
 
 static int cpu_do_boost(struct notifier_block *nb, unsigned long val, void *data)
@@ -149,15 +143,12 @@ static struct notifier_block cpu_do_boost_nb = {
 static void cpu_iboost_input_event(struct input_handle *handle, unsigned int type,
 		unsigned int code, int value)
 {
-	mutex_lock(&input_hndlr_mutex);
 	if (boost_running || !enabled ||
 		!freqs_available || user_minfreq)
-		goto exit;
+		return;
 
 	boost_running = true;
 	queue_work_on(0, boost_wq, &boost_work);
-exit:
-	mutex_unlock(&input_hndlr_mutex);
 }
 
 static int cpu_iboost_input_connect(struct input_handler *handler,
@@ -354,8 +345,6 @@ static int __init cpu_iboost_init(void)
 	}
 
 	INIT_WORK(&boost_work, cpu_boost_main);
-
-	mutex_init(&input_hndlr_mutex);
 
 	ret = input_register_handler(&cpu_iboost_input_handler);
 	if (ret) {
