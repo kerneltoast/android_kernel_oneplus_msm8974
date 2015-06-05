@@ -472,7 +472,6 @@ static char synaptics_vendor_str[32];
 static unsigned int syna_lcd_ratio1;
 static unsigned int syna_lcd_ratio2;
 
-static struct mutex syna_pm_mutex;
 static struct workqueue_struct *syna_pm_wq;
 static struct work_struct syna_resume_work;
 static struct work_struct syna_suspend_work;
@@ -2303,10 +2302,7 @@ static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
  */
 static void synaptics_rmi4_suspend(struct work_struct *work)
 {
-	struct synaptics_rmi4_data *rmi4_data;
-
-	mutex_lock(&syna_pm_mutex);
-	rmi4_data = dev_get_drvdata(&syna_rmi4_data->input_dev->dev);
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(&syna_rmi4_data->input_dev->dev);
 
 	atomic_set(&rmi4_data->syna_use_gesture,
 			atomic_read(&rmi4_data->double_tap_enable) ||
@@ -2322,7 +2318,6 @@ static void synaptics_rmi4_suspend(struct work_struct *work)
 		synaptics_rmi4_sensor_sleep(rmi4_data);
 		synaptics_rmi4_free_fingers(rmi4_data);
 	}
-	mutex_unlock(&syna_pm_mutex);
 }
 
 /**
@@ -2337,10 +2332,7 @@ static void synaptics_rmi4_suspend(struct work_struct *work)
  */
 static void synaptics_rmi4_resume(struct work_struct *work)
 {
-	struct synaptics_rmi4_data *rmi4_data;
-
-	mutex_lock(&syna_pm_mutex);
-	rmi4_data = dev_get_drvdata(&syna_rmi4_data->input_dev->dev);
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(&syna_rmi4_data->input_dev->dev);
 
 	if (atomic_read(&rmi4_data->syna_use_gesture)) {
 		synaptics_enable_gesture(rmi4_data, false);
@@ -2356,7 +2348,6 @@ static void synaptics_rmi4_resume(struct work_struct *work)
 			atomic_read(&rmi4_data->camera_enable) ||
 			atomic_read(&rmi4_data->music_enable) ||
 			atomic_read(&rmi4_data->flashlight_enable) ? 1 : 0);
-	mutex_unlock(&syna_pm_mutex);
 }
 
 static int fb_notifier_callback(struct notifier_block *p,
@@ -2373,10 +2364,13 @@ static int fb_notifier_callback(struct notifier_block *p,
 	if (ev == syna_rmi4_data->old_status)
 		return NOTIFY_OK;
 
-	if (ev)
+	if (ev) {
+		cancel_work_sync(&syna_resume_work);
 		queue_work(syna_pm_wq, &syna_suspend_work);
-	else
+	} else {
+		cancel_work_sync(&syna_suspend_work);
 		queue_work(syna_pm_wq, &syna_resume_work);
+	}
 
 	syna_rmi4_data->old_status = ev;
 
@@ -2445,7 +2439,6 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 
 	mutex_init(&rmi4_data->rmi4_io_ctrl_mutex);
 	mutex_init(&rmi4_data->rmi4_reset_mutex);
-	mutex_init(&syna_pm_mutex);
 
 	syna_rmi4_data = rmi4_data;
 	client->dev.platform_data = &dsx_platformdata;
