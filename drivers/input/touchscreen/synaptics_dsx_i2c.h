@@ -261,6 +261,7 @@ struct synaptics_rmi4_data {
 	atomic_t flashlight_enable;
 	atomic_t keypad_enable;
 	atomic_t irq_enabled;
+	atomic_t sensor_awake;
 	unsigned char bcontinue;
 };
 

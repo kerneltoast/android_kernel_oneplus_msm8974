@@ -2229,6 +2229,9 @@ static void synaptics_rmi4_sensor_sleep(struct synaptics_rmi4_data *rmi4_data)
 	unsigned char device_ctrl;
 	int ret;
 
+	if (!atomic_read(&rmi4_data->sensor_awake))
+		return;
+
 	ret = synaptics_rmi4_i2c_read(rmi4_data,
 			rmi4_data->f01_ctrl_base_addr,
 			&device_ctrl,
@@ -2247,10 +2250,14 @@ static void synaptics_rmi4_sensor_sleep(struct synaptics_rmi4_data *rmi4_data)
 			rmi4_data->f01_ctrl_base_addr,
 			&device_ctrl,
 			sizeof(device_ctrl));
-	if (ret)
+	if (ret) {
 		dev_err(&rmi4_data->input_dev->dev,
 				"%s: Failed to enter sleep mode\n",
 				__func__);
+		return;
+	}
+
+	atomic_set(&rmi4_data->sensor_awake, 0);
 }
 
 /**
@@ -2265,6 +2272,9 @@ static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
 	unsigned char device_ctrl;
 	unsigned char no_sleep_setting = rmi4_data->no_sleep_setting;
 	int ret;
+
+	if (atomic_read(&rmi4_data->sensor_awake))
+		return;
 
 	ret = synaptics_rmi4_i2c_read(rmi4_data,
 			rmi4_data->f01_ctrl_base_addr,
@@ -2284,10 +2294,14 @@ static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
 			rmi4_data->f01_ctrl_base_addr,
 			&device_ctrl,
 			sizeof(device_ctrl));
-	if (ret)
+	if (ret) {
 		dev_err(&rmi4_data->input_dev->dev,
 				"%s: Failed to wake from sleep mode\n",
 				__func__);
+		return;
+	}
+
+	atomic_set(&rmi4_data->sensor_awake, 1);
 }
 
 /**
@@ -2504,6 +2518,7 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 
 	synaptics_ts_init_virtual_key(rmi4_data);
 	synaptics_rmi4_init_touchpanel_proc();
+	synaptics_rmi4_sensor_wake(rmi4_data);
 
 	ret = synaptics_rmi4_irq_enable(rmi4_data, true);
 	if (ret)
