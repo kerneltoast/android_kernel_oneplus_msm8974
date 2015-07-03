@@ -30,7 +30,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
 #include <linux/rtc.h>
-#include <linux/fb.h>
+#include <linux/lcd_notify.h>
 #include <linux/proc_fs.h>
 #include <linux/input/mt.h>
 
@@ -2369,29 +2369,24 @@ static void synaptics_rmi4_resume(struct work_struct *work)
 	synaptics_rmi4_irq_enable(rmi4_data, true);
 }
 
-static int fb_notifier_callback(struct notifier_block *p,
+static int lcd_notifier_callback(struct notifier_block *this,
 		unsigned long event, void *data)
 {
-	struct fb_event *evdata = data;
-	int ev;
+	static bool init = true;
 
-	if (event != FB_EVENT_BLANK)
+	if (unlikely(init)) {
+		init = false;
 		return NOTIFY_OK;
-
-	ev = (*(int *)evdata->data);
-
-	if (ev == syna_rmi4_data->old_status)
-		return NOTIFY_OK;
-
-	if (ev) {
-		cancel_work_sync(&syna_resume_work);
-		queue_work(syna_pm_wq, &syna_suspend_work);
-	} else {
-		cancel_work_sync(&syna_suspend_work);
-		queue_work(syna_pm_wq, &syna_resume_work);
 	}
 
-	syna_rmi4_data->old_status = ev;
+	switch (event) {
+	case LCD_EVENT_ON_START:
+		queue_work(syna_pm_wq, &syna_resume_work);
+		break;
+	case LCD_EVENT_OFF_START:
+		queue_work(syna_pm_wq, &syna_suspend_work);
+		break;
+	}
 
 	return NOTIFY_OK;
 }
@@ -2487,8 +2482,8 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 		goto err_set_input_dev;
 	}
 
-	rmi4_data->fb_notif.notifier_call = fb_notifier_callback;
-	ret = fb_register_client(&rmi4_data->fb_notif);
+	rmi4_data->lcd_notif.notifier_call = lcd_notifier_callback;
+	ret = lcd_register_client(&rmi4_data->lcd_notif);
 	if (ret)
 		goto err_enable_irq;
 
