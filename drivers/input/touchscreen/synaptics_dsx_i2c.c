@@ -2513,7 +2513,7 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 
 	synaptics_ts_init_virtual_key(rmi4_data);
 	synaptics_rmi4_init_touchpanel_proc();
-	synaptics_rmi4_sensor_wake(rmi4_data);
+	atomic_set(&rmi4_data->sensor_awake, 1);
 
 	ret = synaptics_rmi4_irq_enable(rmi4_data, true);
 	if (ret)
