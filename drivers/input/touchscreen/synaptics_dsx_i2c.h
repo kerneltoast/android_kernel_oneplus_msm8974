@@ -262,7 +262,10 @@ struct synaptics_rmi4_data {
 	atomic_t keypad_enable;
 	atomic_t irq_enabled;
 	atomic_t sensor_awake;
+	atomic_t resume_suspend;
 	unsigned char bcontinue;
+	struct workqueue_struct *syna_pm_wq;
+	struct work_struct syna_pm_work;
 };
 
 enum exp_fn {

@@ -472,10 +472,6 @@ static char synaptics_vendor_str[32];
 static unsigned int syna_lcd_ratio1;
 static unsigned int syna_lcd_ratio2;
 
-static struct workqueue_struct *syna_pm_wq;
-static struct work_struct syna_resume_work;
-static struct work_struct syna_suspend_work;
-
 /***** For virtual key definition begin *******************/
 enum tp_vkey_enum {
 	TP_VKEY_MENU,
@@ -2314,10 +2310,8 @@ static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
  * sleep (if not already done so during the early suspend phase),
  * disables the interrupt, and turns off the power to the sensor.
  */
-static void synaptics_rmi4_suspend(struct work_struct *work)
+static void synaptics_rmi4_suspend(struct synaptics_rmi4_data *rmi4_data)
 {
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(&syna_rmi4_data->input_dev->dev);
-
 	synaptics_rmi4_irq_enable(rmi4_data, false);
 
 	atomic_set(&rmi4_data->syna_use_gesture,
@@ -2346,10 +2340,8 @@ static void synaptics_rmi4_suspend(struct work_struct *work)
  * from sleep, enables the interrupt, and starts finger data
  * acquisition.
  */
-static void synaptics_rmi4_resume(struct work_struct *work)
+static void synaptics_rmi4_resume(struct synaptics_rmi4_data *rmi4_data)
 {
-	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(&syna_rmi4_data->input_dev->dev);
-
 	synaptics_rmi4_irq_enable(rmi4_data, false);
 
 	if (atomic_read(&rmi4_data->syna_use_gesture)) {
@@ -2369,10 +2361,23 @@ static void synaptics_rmi4_resume(struct work_struct *work)
 	synaptics_rmi4_irq_enable(rmi4_data, true);
 }
 
+static void synaptics_rmi4_pm_main(struct work_struct *work)
+{
+	struct synaptics_rmi4_data *rmi4_data =
+			container_of(work, struct synaptics_rmi4_data, syna_pm_work);
+
+	if (atomic_read(&rmi4_data->resume_suspend))
+		synaptics_rmi4_resume(rmi4_data);
+	else
+		synaptics_rmi4_suspend(rmi4_data);
+}
+
 static int lcd_notifier_callback(struct notifier_block *this,
 		unsigned long event, void *data)
 {
 	static bool init = true;
+	struct synaptics_rmi4_data *rmi4_data =
+			container_of(this, struct synaptics_rmi4_data, lcd_notif);
 
 	if (unlikely(init)) {
 		init = false;
@@ -2381,10 +2386,12 @@ static int lcd_notifier_callback(struct notifier_block *this,
 
 	switch (event) {
 	case LCD_EVENT_ON_START:
-		queue_work(syna_pm_wq, &syna_resume_work);
+		atomic_set(&rmi4_data->resume_suspend, 1);
+		queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
 		break;
 	case LCD_EVENT_OFF_START:
-		queue_work(syna_pm_wq, &syna_suspend_work);
+		atomic_set(&rmi4_data->resume_suspend, 0);
+		queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
 		break;
 	}
 
@@ -2535,9 +2542,8 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 			&exp_data.work,
 			msecs_to_jiffies(200));
 
-	syna_pm_wq = alloc_workqueue("synaptics_pm_wq", WQ_HIGHPRI, 0);
-	INIT_WORK(&syna_resume_work, synaptics_rmi4_resume);
-	INIT_WORK(&syna_suspend_work, synaptics_rmi4_suspend);
+	rmi4_data->syna_pm_wq = alloc_workqueue("synaptics_pm_wq", WQ_HIGHPRI, 1);
+	INIT_WORK(&rmi4_data->syna_pm_work, synaptics_rmi4_pm_main);
 
 	rmi4_fw_module_init(true);
 	while(1) {
