@@ -53,6 +53,12 @@ struct qpnp_vib {
 };
 
 static struct qpnp_vib *vib_dev;
+static bool disable_vib;
+
+void qpnp_vib_force_off(bool val)
+{
+	disable_vib = val;
+}
 
 static ssize_t qpnp_vib_min_show(struct device *dev,
 					struct device_attribute *attr,
@@ -267,6 +273,9 @@ static void qpnp_vib_enable(struct timed_output_dev *dev, int value)
 	unsigned long flags;
 	struct qpnp_vib *vib = container_of(dev, struct qpnp_vib,
 					 timed_dev);
+
+	if (disable_vib)
+		return;
 
 retry:
 	spin_lock_irqsave(&vib->lock, flags);

@@ -28,12 +28,15 @@ struct qpnp_vib_config {
 #if defined(CONFIG_QPNP_VIBRATOR)
 
 int qpnp_vibrator_config(struct qpnp_vib_config *vib_config);
+void qpnp_vib_force_off(bool val);
 #else
 
 static inline int qpnp_vibrator_config(struct qpnp_vib_config *vib_config)
 {
 	return -ENODEV;
 }
+
+static inline void qpnp_vib_force_off(bool val) { }
 #endif
 
 #endif /* __QPNP_VIBRATOR_H__ */
