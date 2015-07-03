@@ -26,6 +26,8 @@
 		qcom,mdss-dsi-panel-destination = "display_1";
 		qcom,mdss-dsi-panel-width = <1080>;
 		qcom,mdss-dsi-panel-height = <1920>;
+		qcom,mdss-dsi-panel-framerate = <62>;
+		qcom,mdss-tear-check-frame-rate = <6200>;
 		qcom,mdss-dsi-h-front-porch = <140>;
 		qcom,mdss-dsi-h-back-porch = <70>;
 		qcom,mdss-dsi-h-pulse-width = <4>;
