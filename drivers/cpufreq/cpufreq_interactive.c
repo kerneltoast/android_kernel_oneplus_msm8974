@@ -541,7 +541,7 @@ static void cpufreq_interactive_idle_start(void)
 		 */
 		if (!pending) {
 			pcpu->last_evaluated_jiffy = get_jiffies_64();
-			cpufreq_interactive_timer_resched(smp_processor_id(), false);
+			cpufreq_interactive_timer_resched(smp_processor_id());
 
 			/*
 			 * If timer is cancelled because CPU is running at
