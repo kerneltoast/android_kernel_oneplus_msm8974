@@ -96,10 +96,19 @@ static int	audit_nlk_pid;
 /* If audit_rate_limit is non-zero, limit the rate of sending audit records
  * to that number per second.  This prevents DoS attacks, but results in
  * audit records being dropped. */
+#ifdef CONFIG_MACH_MSM8974_14001
+static int	audit_rate_limit = 100;
+#else
 static int	audit_rate_limit;
+#endif
 
 /* Number of outstanding audit_buffers allowed. */
+
+#ifdef CONFIG_MACH_MSM8974_14001
+static int	audit_backlog_limit = 1024;
+#else
 static int	audit_backlog_limit = 64;
+#endif
 static int	audit_backlog_wait_time = 60 * HZ;
 static int	audit_backlog_wait_overflow = 0;
 
@@ -322,15 +331,23 @@ static int audit_do_config_change(char *function_name, int *to_change,
 static int audit_set_rate_limit(int limit, uid_t loginuid, u32 sessionid,
 				u32 sid)
 {
+#ifdef CONFIG_MACH_MSM8974_14001
+	return 0;
+#else
 	return audit_do_config_change("audit_rate_limit", &audit_rate_limit,
 				      limit, loginuid, sessionid, sid);
+#endif
 }
 
 static int audit_set_backlog_limit(int limit, uid_t loginuid, u32 sessionid,
 				   u32 sid)
 {
+#ifdef CONFIG_MACH_MSM8974_14001
+	return 0;
+#else
 	return audit_do_config_change("audit_backlog_limit", &audit_backlog_limit,
 				      limit, loginuid, sessionid, sid);
+#endif
 }
 
 static int audit_set_enabled(int state, uid_t loginuid, u32 sessionid, u32 sid)
