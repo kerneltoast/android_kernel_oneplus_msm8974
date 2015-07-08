@@ -2378,25 +2378,28 @@ static int fb_notifier_callback(struct notifier_block *nb,
 	struct fb_event *evdata = data;
 	struct synaptics_rmi4_data *rmi4_data =
 			container_of(nb, struct synaptics_rmi4_data, fb_notif);
-	int ev;
+	int *blank;
 
 	if (event != FB_EVENT_BLANK)
 		return NOTIFY_OK;
 
-	ev = (*(int *)evdata->data);
+	blank = evdata->data;
 
-	if (ev == syna_rmi4_data->old_status)
+	if (*blank == rmi4_data->old_status)
 		return NOTIFY_OK;
 
-	if (ev) {
-		atomic_set(&rmi4_data->resume_suspend, 0);
-		queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
-	} else {
+	switch (*blank) {
+	case FB_BLANK_UNBLANK:
 		atomic_set(&rmi4_data->resume_suspend, 1);
 		queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
+		break;
+	case FB_BLANK_POWERDOWN:
+		atomic_set(&rmi4_data->resume_suspend, 0);
+		queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
+		break;
 	}
 
-	syna_rmi4_data->old_status = ev;
+	rmi4_data->old_status = *blank;
 
 	return NOTIFY_OK;
 }
