@@ -2328,6 +2328,8 @@ static void synaptics_rmi4_suspend(struct synaptics_rmi4_data *rmi4_data)
 		synaptics_rmi4_sensor_sleep(rmi4_data);
 		synaptics_rmi4_free_fingers(rmi4_data);
 	}
+
+	atomic_set(&rmi4_data->ts_awake, 0);
 }
 
 /**
@@ -2359,6 +2361,7 @@ static void synaptics_rmi4_resume(struct synaptics_rmi4_data *rmi4_data)
 			atomic_read(&rmi4_data->flashlight_enable) ? 1 : 0);
 
 	synaptics_rmi4_irq_enable(rmi4_data, true);
+	atomic_set(&rmi4_data->ts_awake, 1);
 }
 
 static void synaptics_rmi4_pm_main(struct work_struct *work)
@@ -2375,26 +2378,24 @@ static void synaptics_rmi4_pm_main(struct work_struct *work)
 static int lcd_notifier_callback(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
-	static bool init = true;
 	struct synaptics_rmi4_data *rmi4_data =
 			container_of(nb, struct synaptics_rmi4_data, lcd_notif);
-
-	if (unlikely(init)) {
-		init = false;
-		return NOTIFY_OK;
-	}
 
 	if (rmi4_data->old_status == event)
 		return NOTIFY_OK;
 
 	switch (event) {
 	case LCD_EVENT_ON_END:
-		atomic_set(&rmi4_data->resume_suspend, 1);
-		queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
+		if (!atomic_read(&rmi4_data->ts_awake)) {
+			atomic_set(&rmi4_data->resume_suspend, 1);
+			queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
+		}
 		break;
 	case LCD_EVENT_OFF_END:
-		atomic_set(&rmi4_data->resume_suspend, 0);
-		queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
+		if (atomic_read(&rmi4_data->ts_awake)) {
+			atomic_set(&rmi4_data->resume_suspend, 0);
+			queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
+		}
 		break;
 	}
 
@@ -2494,6 +2495,7 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 		goto err_set_input_dev;
 	}
 
+	atomic_set(&rmi4_data->ts_awake, 1);
 	rmi4_data->lcd_notif.notifier_call = lcd_notifier_callback;
 	ret = lcd_register_client(&rmi4_data->lcd_notif);
 	if (ret)
