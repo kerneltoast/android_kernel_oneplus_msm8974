@@ -2388,11 +2388,11 @@ static int lcd_notifier_callback(struct notifier_block *nb,
 		return NOTIFY_OK;
 
 	switch (event) {
-	case LCD_EVENT_ON_START:
+	case LCD_EVENT_ON_END:
 		atomic_set(&rmi4_data->resume_suspend, 1);
 		queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
 		break;
-	case LCD_EVENT_OFF_START:
+	case LCD_EVENT_OFF_END:
 		atomic_set(&rmi4_data->resume_suspend, 0);
 		queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
 		break;
