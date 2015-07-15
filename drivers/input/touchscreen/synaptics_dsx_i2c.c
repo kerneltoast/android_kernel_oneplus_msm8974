@@ -30,7 +30,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
 #include <linux/rtc.h>
-#include <linux/fb.h>
+#include <linux/lcd_notify.h>
 #include <linux/proc_fs.h>
 #include <linux/input/mt.h>
 
@@ -2372,31 +2372,33 @@ static void synaptics_rmi4_pm_main(struct work_struct *work)
 		synaptics_rmi4_suspend(rmi4_data);
 }
 
-static int fb_notifier_callback(struct notifier_block *nb,
+static int lcd_notifier_callback(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
-	struct fb_event *evdata = data;
+	static bool init = true;
 	struct synaptics_rmi4_data *rmi4_data =
-			container_of(nb, struct synaptics_rmi4_data, fb_notif);
-	int ev;
+			container_of(nb, struct synaptics_rmi4_data, lcd_notif);
 
-	if (event != FB_EVENT_BLANK)
+	if (unlikely(init)) {
+		init = false;
 		return NOTIFY_OK;
-
-	ev = (*(int *)evdata->data);
-
-	if (ev == syna_rmi4_data->old_status)
-		return NOTIFY_OK;
-
-	if (ev) {
-		atomic_set(&rmi4_data->resume_suspend, 0);
-		queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
-	} else {
-		atomic_set(&rmi4_data->resume_suspend, 1);
-		queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
 	}
 
-	syna_rmi4_data->old_status = ev;
+	if (rmi4_data->old_status == event)
+		return NOTIFY_OK;
+
+	switch (event) {
+	case LCD_EVENT_ON_START:
+		atomic_set(&rmi4_data->resume_suspend, 1);
+		queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
+		break;
+	case LCD_EVENT_OFF_START:
+		atomic_set(&rmi4_data->resume_suspend, 0);
+		queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
+		break;
+	}
+
+	rmi4_data->old_status = event;
 
 	return NOTIFY_OK;
 }
@@ -2492,8 +2494,8 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 		goto err_set_input_dev;
 	}
 
-	rmi4_data->fb_notif.notifier_call = fb_notifier_callback;
-	ret = fb_register_client(&rmi4_data->fb_notif);
+	rmi4_data->lcd_notif.notifier_call = lcd_notifier_callback;
+	ret = lcd_register_client(&rmi4_data->lcd_notif);
 	if (ret)
 		goto err_enable_irq;
 
