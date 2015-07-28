@@ -2391,7 +2391,7 @@ static int lcd_notifier_callback(struct notifier_block *nb,
 			queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
 		}
 		break;
-	case LCD_EVENT_OFF_END:
+	case LCD_EVENT_OFF_START:
 		if (atomic_read(&rmi4_data->ts_awake)) {
 			atomic_set(&rmi4_data->resume_suspend, 0);
 			queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
