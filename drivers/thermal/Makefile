@@ -12,3 +12,4 @@ obj-$(CONFIG_SPEAR_THERMAL)		+= spear_thermal.o
 obj-$(CONFIG_THERMAL_TSENS8974)	+= msm8974-tsens.o
 obj-$(CONFIG_THERMAL_QPNP)	+= qpnp-temp-alarm.o
 obj-$(CONFIG_THERMAL_QPNP_ADC_TM)	+= qpnp-adc-tm.o
+obj-$(CONFIG_THERMAL_MONITOR_SIMPLE)	+= msm_thermal_simple.o
