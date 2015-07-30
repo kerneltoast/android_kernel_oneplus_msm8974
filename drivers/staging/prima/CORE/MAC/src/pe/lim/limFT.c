@@ -117,7 +117,6 @@ void limFTCleanup(tpAniSirGlobal pMac)
 
     if (pMac->ft.ftPEContext.pAddBssReq)
     {
-        vos_mem_zero(pMac->ft.ftPEContext.pAddBssReq, sizeof(tAddBssParams));
         vos_mem_free(pMac->ft.ftPEContext.pAddBssReq);
         pMac->ft.ftPEContext.pAddBssReq = NULL;
     }

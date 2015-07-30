@@ -46,6 +46,7 @@
 #include "pmc.h"
 #include "wlan_qct_wda.h"
 #include "wlan_ps_wow_diag.h"
+#include <vos_power.h>
 #include "csrInsideApi.h"
 
 static void pmcProcessDeferredMsg( tpAniSirGlobal pMac );
@@ -204,7 +205,12 @@ eHalStatus pmcEnterFullPowerState (tHalHandle hHal)
         return eHAL_STATUS_FAILURE;
     }
 
-    pmcLog(pMac, LOG1, "PMC: Enter full power done");
+    pmcLog(pMac, LOG1, "PMC: Enter full power done: Cancel XO Core ON vote");
+    if (vos_chipVoteXOCore(NULL, NULL, NULL, VOS_FALSE) != VOS_STATUS_SUCCESS)
+    {
+        pmcLog(pMac, LOGE, "Could not cancel XO Core ON vote. Not returning failure. "
+                                "Power consumed will be high");
+    }
 
     return eHAL_STATUS_SUCCESS;
 }
@@ -229,6 +235,8 @@ eHalStatus pmcEnterFullPowerState (tHalHandle hHal)
 eHalStatus pmcEnterRequestFullPowerState (tHalHandle hHal, tRequestFullPowerReason fullPowerReason)
 {
     tpAniSirGlobal pMac = PMAC_STRUCT(hHal);
+    vos_call_status_type callType;
+    VOS_STATUS status;
 
     pmcLog(pMac, LOG2, FL("Entering pmcEnterRequestFullPowerState"));
 
@@ -271,6 +279,12 @@ eHalStatus pmcEnterRequestFullPowerState (tHalHandle hHal, tRequestFullPowerReas
     case IMPS:
         if ( pMac->pmc.rfSuppliesVotedOff )
         {
+            status = vos_chipVoteOnRFSupply(&callType, NULL, NULL);
+            VOS_ASSERT( VOS_IS_STATUS_SUCCESS( status ) );
+
+            status = vos_chipVoteOnXOBuffer(&callType, NULL, NULL);
+            VOS_ASSERT( VOS_IS_STATUS_SUCCESS( status ) );
+
             pMac->pmc.rfSuppliesVotedOff = FALSE;
         }
 
@@ -301,6 +315,17 @@ eHalStatus pmcEnterRequestFullPowerState (tHalHandle hHal, tRequestFullPowerReas
     case STANDBY:
         if ( pMac->pmc.rfSuppliesVotedOff )
         {
+            status = vos_chipVoteOnXOBuffer(&callType, NULL, NULL);
+            if(VOS_STATUS_SUCCESS != status)
+            {
+                return eHAL_STATUS_FAILURE;
+            }
+            status = vos_chipVoteOnRFSupply(&callType, NULL, NULL);
+            if(VOS_STATUS_SUCCESS != status)
+            {
+                return eHAL_STATUS_FAILURE;
+            }
+
             pMac->pmc.rfSuppliesVotedOff = FALSE;
         }
 
@@ -415,6 +440,8 @@ eHalStatus pmcEnterRequestImpsState (tHalHandle hHal)
 eHalStatus pmcEnterImpsState (tHalHandle hHal)
 {
     tpAniSirGlobal pMac = PMAC_STRUCT(hHal);
+    vos_call_status_type callType;
+    VOS_STATUS status;
     pmcLog(pMac, LOG2, FL("Entering pmcEnterImpsState"));
 
     /* Can enter IMPS State only from Request IMPS State. */
@@ -460,6 +487,14 @@ eHalStatus pmcEnterImpsState (tHalHandle hHal)
         }
         pMac->pmc.ImpsReqTimerfailCnt = 0;
     }
+
+    //Vote off RF supplies. Note RF supllies are not voted off if there is a
+    //pending request for full power already
+    status = vos_chipVoteOffRFSupply(&callType, NULL, NULL);
+    VOS_ASSERT( VOS_IS_STATUS_SUCCESS( status ) );
+
+    status = vos_chipVoteOffXOBuffer(&callType, NULL, NULL);
+    VOS_ASSERT( VOS_IS_STATUS_SUCCESS( status ) );
 
     pMac->pmc.rfSuppliesVotedOff= TRUE;
 
@@ -1446,6 +1481,8 @@ eHalStatus pmcEnterRequestStandbyState (tHalHandle hHal)
 eHalStatus pmcEnterStandbyState (tHalHandle hHal)
 {
    tpAniSirGlobal pMac = PMAC_STRUCT(hHal);
+   vos_call_status_type callType;
+   VOS_STATUS status;
 
    pmcLog(pMac, LOG2, "PMC: entering pmcEnterStandbyState");
 
@@ -1467,6 +1504,14 @@ eHalStatus pmcEnterStandbyState (tHalHandle hHal)
       /* Start exit STANDBY sequence now. */
       return pmcEnterRequestFullPowerState(hHal, pMac->pmc.requestFullPowerReason);
    }
+
+   //Note that RF supplies are not voted off if there is already a pending request
+   //for full power
+   status = vos_chipVoteOffRFSupply(&callType, NULL, NULL);
+   VOS_ASSERT( VOS_IS_STATUS_SUCCESS( status ) );
+
+   status = vos_chipVoteOffXOBuffer(&callType, NULL, NULL);
+   VOS_ASSERT( VOS_IS_STATUS_SUCCESS( status ) );
 
    pMac->pmc.rfSuppliesVotedOff= TRUE;
 
@@ -2087,6 +2132,7 @@ eHalStatus pmcIssueCommand( tpAniSirGlobal pMac, eSmeCommandType cmdType, void *
 tANI_BOOLEAN pmcProcessCommand( tpAniSirGlobal pMac, tSmeCmd *pCommand )
 {
     eHalStatus status = eHAL_STATUS_SUCCESS;
+    VOS_STATUS vstatus;
     tANI_BOOLEAN fRemoveCmd = eANI_BOOLEAN_TRUE;
 
     do
@@ -2160,8 +2206,14 @@ tANI_BOOLEAN pmcProcessCommand( tpAniSirGlobal pMac, tSmeCmd *pCommand )
                 {
                     /* Change PMC state */
                     pMac->pmc.pmcState = REQUEST_BMPS;
-                    pmcLog(pMac, LOG2, "PMC: Enter BMPS req done");
-
+                    pmcLog(pMac, LOG2, "PMC: Enter BMPS req done: Force XO Core ON");
+                    vstatus = vos_chipVoteXOCore(NULL, NULL, NULL, VOS_TRUE);
+                    if ( !VOS_IS_STATUS_SUCCESS(vstatus) )
+                    {
+                        pmcLog(pMac, LOGE, "Could not turn XO Core ON. Can't go to BMPS");
+                    }
+                    else /* XO Core turn ON was successful */
+                    {
                     /* Tell MAC to have device enter BMPS mode. */
                     status = pmcSendMessage(pMac, eWNI_PMC_ENTER_BMPS_REQ, NULL, 0);
                     if ( HAL_STATUS_SUCCESS( status ) )
@@ -2171,6 +2223,17 @@ tANI_BOOLEAN pmcProcessCommand( tpAniSirGlobal pMac, tSmeCmd *pCommand )
                     else
                     {
                         pmcLog(pMac, LOGE, "Fail to send enter BMPS msg to PE");
+                            /* Cancel the vote for XO Core */
+                            pmcLog(pMac, LOGW, "In module init: Cancel the vote for XO CORE ON "
+                                                             "since send enter bmps failed");
+                            if (vos_chipVoteXOCore(NULL, NULL, NULL, VOS_FALSE) != VOS_STATUS_SUCCESS)
+                            {
+                                pmcLog(pMac, LOGE, "Could not cancel XO Core ON vote."
+                                                   "Not returning failure."
+                                                   "Power consumed will be high");
+                            }
+
+                        }
                     }
                 }
                 if( !HAL_STATUS_SUCCESS( status ) )

@@ -1887,7 +1887,6 @@ limSetContextReqSerDes(tpAniSirGlobal pMac, tpSirSmeSetContextReq pSetContextReq
         do {
             tANI_U32 keySize   = limGetKeysInfo(pMac, (tpSirKeys) pKeys,
                                        pBuf);
-            vos_mem_zero(pBuf, keySize);
             pBuf         += keySize;
             pKeys        += sizeof(tSirKeys);
             totalKeySize += (tANI_U16) keySize;

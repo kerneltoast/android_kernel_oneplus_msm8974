@@ -1120,8 +1120,6 @@ eCsrPhyMode sapConvertSapPhyModeToCsrPhyMode( eSapPhyMode sapPhyMode )
       case (eSAP_DOT11_MODE_11ac):
          return eCSR_DOT11_MODE_11ac;
 #endif
-      case (eSAP_DOT11_MODE_11a):
-         return eCSR_DOT11_MODE_11a;
       default:
          return eCSR_DOT11_MODE_AUTO;
     }

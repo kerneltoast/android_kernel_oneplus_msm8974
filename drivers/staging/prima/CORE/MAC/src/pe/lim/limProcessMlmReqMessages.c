@@ -512,7 +512,6 @@ void limContinuePostChannelScan(tpAniSirGlobal pMac)
         /* Start peridic timer which will trigger probe req based on min/max
            channel timer */
         periodicScanTimer = &pMac->lim.limTimers.gLimPeriodicProbeReqTimer;
-        limDeactivateAndChangeTimer(pMac, eLIM_PERIODIC_PROBE_REQ_TIMER);
         if (tx_timer_activate(periodicScanTimer) != TX_SUCCESS)
         {
              limLog(pMac, LOGP, FL("could not start periodic probe req "
@@ -2041,7 +2040,7 @@ limProcessMlmScanReq(tpAniSirGlobal pMac, tANI_U32 *pMsgBuf)
          * Log error
          */
         limLog(pMac, LOGW,
-               FL("received unexpected MLM_SCAN_REQ in state %d OR zero number of channels: %d"),
+               FL("received unexpected MLM_SCAN_REQ in state %X OR zero number of channels: %X"),
                pMac->lim.gLimMlmState, ((tLimMlmScanReq *) pMsgBuf)->channelList.numChannels);
         limPrintMlmState(pMac, LOGW, pMac->lim.gLimMlmState);
 
@@ -2087,7 +2086,7 @@ static void limProcessMlmOemDataReq(tpAniSirGlobal pMac, tANI_U32 *pMsgBuf)
          * Log error
          */
 
-        PELOGW(limLog(pMac, LOGW, FL("OEM_DATA: unexpected LIM_MLM_OEM_DATA_REQ in invalid state %d"),pMac->lim.gLimMlmState);)
+        PELOGW(limLog(pMac, LOGW, FL("OEM_DATA: unexpected LIM_MLM_OEM_DATA_REQ in invalid state %X"),pMac->lim.gLimMlmState);)
 
         limPrintMlmState(pMac, LOGW, pMac->lim.gLimMlmState);
 
@@ -2304,13 +2303,13 @@ limProcessMlmJoinReq(tpAniSirGlobal pMac, tANI_U32 *pMsgBuf)
               * Return join confirm with invalid parameters code.
               */
         PELOGE(limLog(pMac, LOGE,
-               FL("Unexpected Join request for role %d state %d"),
+               FL("Unexpected Join request for role %d state %X"),
                psessionEntry->limSystemRole,
                psessionEntry->limMlmState);)
         limPrintMlmState(pMac, LOGE, psessionEntry->limMlmState);
         
         limLog(pMac, LOGE,
-               FL("SessionId:%d Unexpected Join request for role %d state %d "),
+               FL("SessionId:%d Unexpected Join request for role %d state %X "),
                psessionEntry->peSessionId,psessionEntry->limSystemRole,
                psessionEntry->limMlmState);
     }
@@ -2645,7 +2644,7 @@ limProcessMlmAssocReq(tpAniSirGlobal pMac, tANI_U32 *pMsgBuf)
 
         // Log error
         PELOGW(limLog(pMac, LOGW,
-           FL("received unexpected MLM_ASSOC_CNF in state %d for role=%d, MAC addr= "
+           FL("received unexpected MLM_ASSOC_CNF in state %X for role=%d, MAC addr= "
            MAC_ADDRESS_STR), psessionEntry->limMlmState,
            psessionEntry->limSystemRole, MAC_ADDR_ARRAY(pMlmAssocReq->peerMacAddr));)
         limPrintMlmState(pMac, LOGW, psessionEntry->limMlmState);
@@ -2799,7 +2798,7 @@ limProcessMlmReassocReq(tpAniSirGlobal pMac, tANI_U32 *pMsgBuf)
 
         // Log error
         limLog(pMac, LOGW,
-           FL("received unexpected MLM_REASSOC_CNF in state %d for role=%d, "
+           FL("received unexpected MLM_REASSOC_CNF in state %X for role=%d, "
            "MAC addr= "
            MAC_ADDRESS_STR), psessionEntry->limMlmState,
            psessionEntry->limSystemRole,
@@ -3862,7 +3861,7 @@ limProcessMinChannelTimeout(tpAniSirGlobal pMac)
         }
 
         limLog(pMac, LOGW,
-           FL("Sending End Scan req from MIN_CH_TIMEOUT in state %d ch-%d"),
+           FL("Sending End Scan req from MIN_CH_TIMEOUT in state %X ch-%d"),
            pMac->lim.gLimMlmState,channelNum);
         limSendHalEndScanReq(pMac, channelNum, eLIM_HAL_END_SCAN_WAIT_STATE);
     }
@@ -3874,7 +3873,7 @@ limProcessMinChannelTimeout(tpAniSirGlobal pMac)
          * Log error.
          */
         limLog(pMac, LOGW,
-           FL("received unexpected MIN channel timeout in mlme state %d and hal scan State %d"),
+           FL("received unexpected MIN channel timeout in mlme state %X and hal scan State %X"),
            pMac->lim.gLimMlmState,pMac->lim.gLimHalScanState);
         limPrintMlmState(pMac, LOGE, pMac->lim.gLimMlmState);
     }
@@ -3937,7 +3936,7 @@ limProcessMaxChannelTimeout(tpAniSirGlobal pMac)
             }
         }
         limLog(pMac, LOGW,
-           FL("Sending End Scan req from MAX_CH_TIMEOUT in state %d on ch-%d"),
+           FL("Sending End Scan req from MAX_CH_TIMEOUT in state %X on ch-%d"),
            pMac->lim.gLimMlmState,channelNum);
         limSendHalEndScanReq(pMac, channelNum, eLIM_HAL_END_SCAN_WAIT_STATE);
     }
@@ -3949,7 +3948,7 @@ limProcessMaxChannelTimeout(tpAniSirGlobal pMac)
          * Log error.
          */
         limLog(pMac, LOGW,
-           FL("received unexpected MAX channel timeout in mlme state %d and hal scan state %d"),
+           FL("received unexpected MAX channel timeout in mlme state %X and hal scan state %X"),
            pMac->lim.gLimMlmState, pMac->lim.gLimHalScanState);
         limPrintMlmState(pMac, LOGW, pMac->lim.gLimMlmState);
     }
@@ -4045,7 +4044,7 @@ limProcessPeriodicProbeReqTimer(tpAniSirGlobal pMac)
          * Log error.
          */
         limLog(pMac, LOG1,
-           FL("received unexpected Periodic scan timeout in state %d"),
+           FL("received unexpected Periodic scan timeout in state %X"),
            pMac->lim.gLimMlmState);
     }
 } /*** limProcessPeriodicProbeReqTimer() ***/
@@ -4152,7 +4151,7 @@ limProcessJoinFailureTimeout(tpAniSirGlobal pMac)
          * Log error.
          */
         limLog(pMac, LOGW,
-           FL("received unexpected JOIN failure timeout in state %d"),psessionEntry->limMlmState);
+           FL("received unexpected JOIN failure timeout in state %X"),psessionEntry->limMlmState);
         limPrintMlmState(pMac, LOGW, psessionEntry->limMlmState);
     }
 } /*** limProcessJoinFailureTimeout() ***/
@@ -4244,7 +4243,7 @@ limProcessAuthFailureTimeout(tpAniSirGlobal pMac)
         return;
     }
     limLog(pMac, LOGE, FL("received AUTH failure timeout in sessionid %d "
-    "limMlmstate %d limSmeState %d"), psessionEntry->peSessionId,
+    "limMlmstate %X limSmeState %X"), psessionEntry->peSessionId,
     psessionEntry->limMlmState, psessionEntry->limSmeState);
 #ifdef FEATURE_WLAN_DIAG_SUPPORT_LIM //FEATURE_WLAN_DIAG_SUPPORT_LIM
     WLAN_VOS_DIAG_LOG_ALLOC(pRssiLog,
@@ -4280,7 +4279,7 @@ limProcessAuthFailureTimeout(tpAniSirGlobal pMac)
              * in states other than wt_auth_frame2/4
              * Log error.
              */
-            PELOGE(limLog(pMac, LOGE, FL("received unexpected AUTH failure timeout in state %d"), psessionEntry->limMlmState);)
+            PELOGE(limLog(pMac, LOGE, FL("received unexpected AUTH failure timeout in state %X"), psessionEntry->limMlmState);)
             limPrintMlmState(pMac, LOGE, psessionEntry->limMlmState);
 
             break;
@@ -4444,7 +4443,7 @@ limProcessAssocFailureTimeout(tpAniSirGlobal pMac, tANI_U32 MsgType)
 
         // Log error
         limLog(pMac, LOGW,
-           FL("received unexpected REASSOC failure timeout in state %d for role %d"),
+           FL("received unexpected REASSOC failure timeout in state %X for role %d"),
            psessionEntry->limMlmState, psessionEntry->limSystemRole);
         limPrintMlmState(pMac, LOGW, psessionEntry->limMlmState);
     }

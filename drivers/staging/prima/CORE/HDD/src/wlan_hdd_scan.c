@@ -237,7 +237,7 @@ static eHalStatus hdd_IndicateScanResult(hdd_scan_info_t *scanInfo, tCsrScanResu
    {
       /* no space to add event */
       /* Error code may be E2BIG */
-       hddLog(LOGE, "hdd_IndicateScanResult: no space for SIOCGIWAP ");
+       hddLog( LOGW, "hdd_IndicateScanResult: no space for SIOCGIWAP ");
        return -E2BIG;
    }
 
@@ -273,7 +273,7 @@ static eHalStatus hdd_IndicateScanResult(hdd_scan_info_t *scanInfo, tCsrScanResu
 
    if (last_event == current_event)
    { /* no space to add event */
-       hddLog( LOGE, "hdd_IndicateScanResult: no space for SIOCGIWNAME");
+       hddLog( LOGW, "hdd_IndicateScanResult: no space for SIOCGIWNAME");
       /* Error code, may be E2BIG */
        return -E2BIG;
    }
@@ -292,7 +292,7 @@ static eHalStatus hdd_IndicateScanResult(hdd_scan_info_t *scanInfo, tCsrScanResu
 
    if (last_event == current_event)
    { /* no space to add event */
-       hddLog( LOGE, "hdd_IndicateScanResult: no space for SIOCGIWFREQ");
+       hddLog( LOGW, "hdd_IndicateScanResult: no space for SIOCGIWFREQ");
        return -E2BIG;
    }
 
@@ -323,7 +323,7 @@ static eHalStatus hdd_IndicateScanResult(hdd_scan_info_t *scanInfo, tCsrScanResu
 
    if (last_event == current_event)
    { /* no space to add event */
-       hddLog(LOGE, "hdd_IndicateScanResult: no space for SIOCGIWMODE");
+       hddLog( LOGW, "hdd_IndicateScanResult: no space for SIOCGIWMODE");
        return -E2BIG;
    }
    /* To extract SSID */
@@ -363,14 +363,14 @@ static eHalStatus hdd_IndicateScanResult(hdd_scan_info_t *scanInfo, tCsrScanResu
 
           if(last_event == current_event)
           { /* no space to add event */
-             hddLog( LOGE, "hdd_IndicateScanResult: no space for SIOCGIWESSID");
+             hddLog( LOGW, "hdd_IndicateScanResult: no space for SIOCGIWESSID");
              return -E2BIG;
           }
        }
 
       if( hdd_GetWPARSNIEs( ( tANI_U8 *) descriptor->ieFields, ie_length, &last_event, &current_event, scanInfo )  < 0    )
       {
-          hddLog( LOGE, "hdd_IndicateScanResult: no space for SIOCGIWESSID");
+          hddLog( LOGW, "hdd_IndicateScanResult: no space for SIOCGIWESSID");
           return -E2BIG;
       }
 
@@ -446,7 +446,7 @@ static eHalStatus hdd_IndicateScanResult(hdd_scan_info_t *scanInfo, tCsrScanResu
       {
           if (last_event == current_event)
           { /* no space to add event */
-              hddLog( LOGE, "hdd_IndicateScanResult: no space for SIOCGIWRATE");
+              hddLog( LOGW, "hdd_IndicateScanResult: no space for SIOCGIWRATE");
               return -E2BIG;
           }
       }
@@ -473,7 +473,7 @@ static eHalStatus hdd_IndicateScanResult(hdd_scan_info_t *scanInfo, tCsrScanResu
       if(last_event == current_event)
       { /* no space to add event
                Error code, may be E2BIG */
-          hddLog( LOGE, "hdd_IndicateScanResult: no space for SIOCGIWENCODE");
+          hddLog( LOGW, "hdd_IndicateScanResult: no space for SIOCGIWENCODE");
           return -E2BIG;
       }
    }
@@ -508,7 +508,7 @@ static eHalStatus hdd_IndicateScanResult(hdd_scan_info_t *scanInfo, tCsrScanResu
 
    if(last_event == current_event)
    { /* no space to add event */
-       hddLog( LOGE, "hdd_IndicateScanResult: no space for IWEVQUAL");
+       hddLog( LOGW, "hdd_IndicateScanResult: no space for IWEVQUAL");
        return -E2BIG;
    }
 
@@ -523,7 +523,7 @@ static eHalStatus hdd_IndicateScanResult(hdd_scan_info_t *scanInfo, tCsrScanResu
                                          &event, custom);
    if(last_event == current_event)
    { /* no space to add event */
-      hddLog( LOGE, "hdd_IndicateScanResult: no space for IWEVCUSTOM (age)");
+      hddLog( LOGW, "hdd_IndicateScanResult: no space for IWEVCUSTOM (age)");
       return -E2BIG;
    }
 
@@ -756,7 +756,6 @@ int iw_set_scan(struct net_device *dev, struct iw_request_info *info,
    }
 
    pHddCtx->scan_info.mScanPending = TRUE;
-   pHddCtx->scan_info.sessionId = pAdapter->sessionId;
 
    pHddCtx->scan_info.scanId = scanId;
 
@@ -1151,7 +1150,6 @@ int iw_set_cscan(struct net_device *dev, struct iw_request_info *info,
         }
 
         pHddCtx->scan_info.scanId = scanId;
-        pHddCtx->scan_info.sessionId = pAdapter->sessionId;
 
     } //end of data->pointer
     else {
@@ -1177,10 +1175,9 @@ exit_point:
 }
 
 /* Abort any MAC scan if in progress */
-tSirAbortScanStatus hdd_abort_mac_scan(hdd_context_t* pHddCtx,
-                                       tANI_U8 sessionId,
-                                       eCsrAbortReason reason)
+void hdd_abort_mac_scan(hdd_context_t* pHddCtx, tANI_U8 sessionId,
+                        eCsrAbortReason reason)
 {
-    return sme_AbortMacScan(pHddCtx->hHal, sessionId, reason);
+    sme_AbortMacScan(pHddCtx->hHal, sessionId, reason);
 }
 

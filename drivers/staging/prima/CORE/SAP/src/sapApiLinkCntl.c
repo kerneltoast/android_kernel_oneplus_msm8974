@@ -169,8 +169,6 @@ WLANSAP_ScanCallback
             // Get scan results, Run channel selection algorithm, select channel and keep in pSapContext->Channel
             scanGetResultStatus = sme_ScanGetResult(halHandle, 0, NULL, &pResult);
 
-            event = eSAP_MAC_SCAN_COMPLETE;
-
             if ((scanGetResultStatus != eHAL_STATUS_SUCCESS)&& (scanGetResultStatus != eHAL_STATUS_E_NULL_VALUE))
             {
                 // No scan results
@@ -182,6 +180,7 @@ WLANSAP_ScanCallback
             operChannel = sapSelectChannel(halHandle, psapContext, pResult);
 
             sme_ScanResultPurge(halHandle, pResult);
+            event = eSAP_MAC_SCAN_COMPLETE;
             break;
 
         default:

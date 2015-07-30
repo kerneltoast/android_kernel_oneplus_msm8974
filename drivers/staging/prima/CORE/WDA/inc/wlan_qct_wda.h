@@ -134,7 +134,6 @@ typedef enum
 
 #define IS_FW_IN_TX_PATH_FEATURE_ENABLE ((WDI_getHostWlanFeatCaps(FW_IN_TX_PATH)) & (WDA_getFwWlanFeatCaps(FW_IN_TX_PATH)))
 #define IS_MUMIMO_BFORMEE_CAPABLE ((WDI_getHostWlanFeatCaps(MU_MIMO)) & (WDA_getFwWlanFeatCaps(MU_MIMO)))
-#define IS_FEATURE_BCN_FLT_DELTA_ENABLE ((WDI_getHostWlanFeatCaps(BCN_IE_FLT_DELTA)) & (WDA_getFwWlanFeatCaps(BCN_IE_FLT_DELTA)))
 /*--------------------------------------------------------------------------
   Utilities
  --------------------------------------------------------------------------*/
@@ -159,8 +158,6 @@ typedef enum
 #else
 #define IS_ROAM_SCAN_OFFLOAD_FEATURE_ENABLE 0
 #endif
-
-#define IS_DYNAMIC_WMM_PS_ENABLED ((WDI_getHostWlanFeatCaps(DYNAMIC_WMM_PS)) & (WDA_getFwWlanFeatCaps(DYNAMIC_WMM_PS)))
 
 /* Check if heartbeat offload is enabled */
 #define IS_IBSS_HEARTBEAT_OFFLOAD_FEATURE_ENABLE ((WDI_getHostWlanFeatCaps(IBSS_HEARTBEAT_OFFLOAD)) & (WDA_getFwWlanFeatCaps(IBSS_HEARTBEAT_OFFLOAD)))
@@ -488,10 +485,10 @@ typedef struct
    tSirLinkState        linkState;
    /* set, when BT AMP session is going on */
    v_BOOL_t             wdaAmpSessionOn;
+   v_U32_t              VosPacketToFree;
    v_BOOL_t             needShutdown;
    v_BOOL_t             wdiFailed;
    v_BOOL_t             wdaTimersCreated;
-   uintptr_t            VosPacketToFree;
 
    /* Event to wait for WDA stop on FTM mode */
    vos_event_t          ftmStopDoneEvent;
@@ -1209,8 +1206,6 @@ tSirRetStatus uMacPostCtrlMsg(void* pSirGlobal, tSirMbMsg* pMb);
 #define WDA_HT40_OBSS_STOP_SCAN_IND SIR_HAL_HT40_OBSS_STOP_SCAN_IND
 
 #define WDA_GET_BCN_MISS_RATE_REQ        SIR_HAL_BCN_MISS_RATE_REQ
-#define WDA_ENCRYPT_MSG_REQ               SIR_HAL_ENCRYPT_MSG_REQ
-#define WDA_ENCRYPT_MSG_RSP               SIR_HAL_ENCRYPT_MSG_RSP
 
 #ifdef WLAN_FEATURE_LINK_LAYER_STATS
 #define WDA_LINK_LAYER_STATS_CLEAR_REQ         SIR_HAL_LL_STATS_CLEAR_REQ

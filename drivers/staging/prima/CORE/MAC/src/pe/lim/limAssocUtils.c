@@ -2800,7 +2800,6 @@ limAddStaSelf(tpAniSirGlobal pMac,tANI_U16 staIdx, tANI_U8 updateSta, tpPESessio
     tANI_U32 listenInterval = WNI_CFG_LISTEN_INTERVAL_STADEF;
     tANI_U32 shortGi20MhzSupport;
     tANI_U32 shortGi40MhzSupport;
-    tANI_U32 val;
     /*This self Sta dot 11 mode comes from the cfg and the expectation here is
      * that cfg carries the systemwide capability that device under
      * consideration can support. This capability gets plumbed into the cfg
@@ -2853,12 +2852,7 @@ limAddStaSelf(tpAniSirGlobal pMac,tANI_U16 staIdx, tANI_U8 updateSta, tpPESessio
     pAddStaParams->staIdx = staIdx;
     pAddStaParams->updateSta = updateSta;
 
-    if (wlan_cfgGetInt(pMac, WNI_CFG_SHORT_PREAMBLE, &val) != eSIR_SUCCESS)
-    {
-        limLog(pMac, LOGP, FL("Get short preamble failed. Set Default value"));
-         pAddStaParams->shortPreambleSupported = 1;
-    }
-    pAddStaParams->shortPreambleSupported = val;
+    pAddStaParams->shortPreambleSupported = psessionEntry->beaconParams.fShortPreamble;
 
 #ifdef WLAN_FEATURE_11AC
     limPopulateOwnRateSet(pMac, &pAddStaParams->supportedRates, NULL, false,psessionEntry,NULL);
@@ -3331,9 +3325,6 @@ limCheckAndAnnounceJoinSuccess(tpAniSirGlobal pMac,
         psessionEntry->limMlmState = eLIM_MLM_JOINED_STATE;
         MTRACE(macTrace(pMac, TRACE_CODE_MLM_STATE, psessionEntry->peSessionId, eLIM_MLM_JOINED_STATE));
 
-        /* update the capability info based on recently
-         * received beacon/probe response frame */
-        psessionEntry->limCurrentBssCaps = limGetU16((tANI_U8 *) &pBPR->capabilityInfo);
 
         /**
          * Announce join success by sending
@@ -3688,8 +3679,7 @@ tSirRetStatus limStaSendAddBss( tpAniSirGlobal pMac, tpSirAssocRsp pAssocRsp,
         }
         pAddBssParams->staContext.uAPSD = 0;
         pAddBssParams->staContext.maxSPLen = 0;
-        pAddBssParams->staContext.shortPreambleSupported =
-                       psessionEntry->beaconParams.fShortPreamble;
+        pAddBssParams->staContext.shortPreambleSupported = (tANI_U8)pAssocRsp->capabilityInfo.shortPreamble;
         pAddBssParams->staContext.updateSta = updateEntry;
 
         limLog(pMac, LOG2, FL("StaContext: "MAC_ADDRESS_STR

@@ -417,13 +417,6 @@ REG_TABLE_ENTRY g_registry_table[] =
                  CFG_IMPS_MAXIMUM_SLEEP_TIME_MIN,
                  CFG_IMPS_MAXIMUM_SLEEP_TIME_MAX ),
 
-   REG_VARIABLE( CFG_DEFER_SCAN_TIME_INTERVAL, WLAN_PARAM_Integer,
-                 hdd_config_t, nDeferScanTimeInterval,
-                 VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
-                 CFG_DEFER_SCAN_TIME_INTERVAL_DEFAULT,
-                 CFG_DEFER_SCAN_TIME_INTERVAL_MIN,
-                 CFG_DEFER_SCAN_TIME_INTERVAL_MAX ),
-
    REG_VARIABLE( CFG_IMPS_MODERATE_SLEEP_TIME_NAME, WLAN_PARAM_Integer,
                  hdd_config_t, nImpsModSleepTime,
                  VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
@@ -2234,13 +2227,6 @@ REG_TABLE_ENTRY g_registry_table[] =
               CFG_ENABLE_DFS_CHNL_SCAN_MIN,
               CFG_ENABLE_DFS_CHNL_SCAN_MAX ),
 
-   REG_VARIABLE( CFG_ENABLE_DFS_PNO_CHNL_SCAN_NAME, WLAN_PARAM_Integer,
-              hdd_config_t, enableDFSPnoChnlScan,
-              VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
-              CFG_ENABLE_DFS_PNO_CHNL_SCAN_DEFAULT,
-              CFG_ENABLE_DFS_PNO_CHNL_SCAN_MIN,
-              CFG_ENABLE_DFS_PNO_CHNL_SCAN_MAX ),
-
    REG_VARIABLE( CFG_ENABLE_DYNAMIC_DTIM_NAME, WLAN_PARAM_Integer,
               hdd_config_t, enableDynamicDTIM,
               VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
@@ -2392,13 +2378,6 @@ REG_TABLE_ENTRY g_registry_table[] =
               CFG_VHT_ENABLE_TX_MCS_8_9_DEFAULT,
               CFG_VHT_ENABLE_TX_MCS_8_9_MIN,
               CFG_VHT_ENABLE_TX_MCS_8_9_MAX),
-
-   REG_VARIABLE( CFG_VHT_AMPDU_LEN_EXP_NAME, WLAN_PARAM_Integer,
-              hdd_config_t, gVhtMaxAmpduLenExp,
-              VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
-              CFG_VHT_AMPDU_LEN_EXP_DEFAULT,
-              CFG_VHT_AMPDU_LEN_EXP_MIN,
-              CFG_VHT_AMPDU_LEN_EXP_MAX ),
 #endif
 
    REG_VARIABLE( CFG_ENABLE_FIRST_SCAN_2G_ONLY_NAME, WLAN_PARAM_Integer,
@@ -2574,13 +2553,6 @@ REG_VARIABLE( CFG_TDLS_SCAN_COEX_SUPPORT_ENABLE, WLAN_PARAM_Integer,
               CFG_TDLS_SCAN_COEX_SUPPORT_ENABLE_DEFAULT,
               CFG_TDLS_SCAN_COEX_SUPPORT_ENABLE_MIN,
               CFG_TDLS_SCAN_COEX_SUPPORT_ENABLE_MAX ),
-
-REG_VARIABLE( CFG_TDLS_SCAN_ENABLE, WLAN_PARAM_Integer,
-              hdd_config_t, fEnableTDLSScan,
-              VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
-              CFG_TDLS_SCAN_ENABLE_DEFAULT,
-              CFG_TDLS_SCAN_ENABLE_MIN,
-              CFG_TDLS_SCAN_ENABLE_MAX ),
 #endif
 
 #ifdef WLAN_FEATURE_LINK_LAYER_STATS
@@ -2918,7 +2890,7 @@ REG_VARIABLE( CFG_EXTSCAN_ENABLE, WLAN_PARAM_Integer,
                  CFG_ASD_PROBE_INTERVAL_MIN,
                  CFG_ASD_PROBE_INTERVAL_MAX),
 
-   REG_VARIABLE( CFG_ASD_TRIGGER_THRESHOLD_NAME, WLAN_PARAM_SignedInteger,
+   REG_VARIABLE( CFG_ASD_TRIGGER_THRESHOLD_NAME, WLAN_PARAM_Integer,
                  hdd_config_t, gAsdTriggerThreshold,
                  VAR_FLAGS_OPTIONAL | VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
                  CFG_ASD_TRIGGER_THRESHOLD_DEFAULT,
@@ -3216,14 +3188,6 @@ REG_VARIABLE( CFG_EXTSCAN_ENABLE, WLAN_PARAM_Integer,
                   CFG_SAP_SCAN_BAND_PREFERENCE_DEFAULT,
                   CFG_SAP_SCAN_BAND_PREFERENCE_MIN,
                   CFG_SAP_SCAN_BAND_PREFERENCE_MAX ),
-
-   REG_VARIABLE( CFG_ENABLE_DYNAMIC_RA_START_RATE_NAME, WLAN_PARAM_Integer,
-                  hdd_config_t, enableDynamicRAStartRate,
-                  VAR_FLAGS_OPTIONAL |
-                  VAR_FLAGS_RANGE_CHECK_ASSUME_DEFAULT,
-                  CFG_ENABLE_DYNAMIC_RA_START_RATE_DEFAULT,
-                  CFG_ENABLE_DYNAMIC_RA_START_RATE_MIN,
-                  CFG_ENABLE_DYNAMIC_RA_START_RATE_MAX),
 };
 
 /*
@@ -3233,7 +3197,7 @@ REG_VARIABLE( CFG_EXTSCAN_ENABLE, WLAN_PARAM_Integer,
  * Function returns NULL if no new line character was found before end of
  * string was reached
  */
-static char* get_next_line(char* str, char *str_end)
+static char* get_next_line(char* str)
 {
   char c;
 
@@ -3244,10 +3208,6 @@ static char* get_next_line(char* str, char *str_end)
   c = *str;
   while(c != '\n'  && c != '\0' && c != 0xd)  {
     str = str + 1;
-    if (str > str_end)
-    {
-        return str;
-    }
     c = *str;
   }
 
@@ -3380,7 +3340,7 @@ VOS_STATUS hdd_parse_config_ini(hdd_context_t* pHddCtx)
        * So validating if the return pointer is not greater than the end
        * buffer address and modifying the buffer value.
        */
-      line = get_next_line(buffer, (pTemp + (fw->size-1)));
+      line = get_next_line(buffer);
       if(line > (pTemp + fw->size)) {
          hddLog(VOS_TRACE_LEVEL_FATAL, "%s: INI file seems to be corrupted",
                   __func__);
@@ -3596,7 +3556,6 @@ static void print_hdd_cfg(hdd_context_t *pHddCtx)
   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gApDataAvailPollInterVal] Value = [%u] ",pHddCtx->cfg_ini->apDataAvailPollPeriodInMs);
   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gEnableBypass11d] Value = [%u] ",pHddCtx->cfg_ini->enableBypass11d);
   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gEnableDFSChnlScan] Value = [%u] ",pHddCtx->cfg_ini->enableDFSChnlScan);
-  VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gEnableDFSPnoChnlScan] Value = [%u] ",pHddCtx->cfg_ini->enableDFSPnoChnlScan);
   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gReportMaxLinkSpeed] Value = [%u] ",pHddCtx->cfg_ini->reportMaxLinkSpeed);
   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [thermalMitigationEnable] Value = [%u] ",pHddCtx->cfg_ini->thermalMitigationEnable);
 #ifdef WLAN_FEATURE_11AC
@@ -3626,14 +3585,12 @@ static void print_hdd_cfg(hdd_context_t *pHddCtx)
   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [overrideCountryCode] Value = [%s] ",pHddCtx->cfg_ini->overrideCountryCode);
 
   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gAsdProbeInterval] Value = [%u]",pHddCtx->cfg_ini->gAsdProbeInterval);
-  VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gAsdTriggerThreshold] Value = [%hhd]",pHddCtx->cfg_ini->gAsdTriggerThreshold);
+  VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gAsdTriggerThreshold] Value = [%u]",pHddCtx->cfg_ini->gAsdTriggerThreshold);
   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gAsdRTTRssiHystThreshold]Value = [%u]",pHddCtx->cfg_ini->gAsdRTTRssiHystThreshold);
   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gRoamtoDFSChannel] Value = [%u] ",pHddCtx->cfg_ini->allowDFSChannelRoam);
   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gMaxConcurrentActiveSessions] Value = [%u] ", pHddCtx->cfg_ini->gMaxConcurrentActiveSessions);
   VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gAcsScanBandPreference] Value = [%u] ",pHddCtx->cfg_ini->acsScanBandPreference);
-  VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gACSBandSwitchThreshold] value = [%u]\n",pHddCtx->cfg_ini->acsBandSwitchThreshold);
-  VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gDeferScanTimeInterval] value = [%u]\n",pHddCtx->cfg_ini->nDeferScanTimeInterval);
-  VOS_TRACE(VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH, "Name = [gEnableTDLSScan] value = [%u]\n",pHddCtx->cfg_ini->fEnableTDLSScan);
+  VOS_TRACE (VOS_MODULE_ID_HDD, VOS_TRACE_LEVEL_INFO_HIGH,"Name = [gACSBandSwitchThreshold] value = [%u]\n",pHddCtx->cfg_ini->acsBandSwitchThreshold);
 }
 
 
@@ -4681,14 +4638,6 @@ v_BOOL_t hdd_update_config_dat( hdd_context_t *pHddCtx )
                fStatus = FALSE;
                hddLog(LOGE, "Could not pass WNI_VHT_SHORT_GI_80MHZ to CCM\n");
            }
-           if (ccmCfgSetInt(pHddCtx->hHal, WNI_CFG_VHT_AMPDU_LEN_EXPONENT,
-               pConfig->gVhtMaxAmpduLenExp, NULL, eANI_BOOLEAN_FALSE)
-               ==eHAL_STATUS_FAILURE)
-           {
-               fStatus = FALSE;
-               hddLog(LOGE, "Could not pass on WNI_CFG_VHT_AMPDU_LEN_EXPONENT to CCM");
-           }
-
        }
    }
 #endif
@@ -5119,15 +5068,6 @@ v_BOOL_t hdd_update_config_dat( hdd_context_t *pHddCtx )
    {
       fStatus = FALSE;
       hddLog(LOGE, "Could not pass on WNI_CFG_BURST_MODE_BE_TXOP_VALUE ");
-   }
-
-   if (ccmCfgSetInt(pHddCtx->hHal, WNI_CFG_ENABLE_DYNAMIC_RA_START_RATE,
-               pConfig->enableDynamicRAStartRate,
-               NULL, eANI_BOOLEAN_FALSE) == eHAL_STATUS_FAILURE)
-   {
-       fStatus = FALSE;
-       hddLog(LOGE, "Could not pass on"
-               "WNI_CFG_ENABLE_DYNAMIC_RA_START_RATE to CCM");
    }
    return fStatus;
 }

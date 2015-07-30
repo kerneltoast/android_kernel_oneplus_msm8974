@@ -378,18 +378,9 @@ limProcessAssocRspFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo, tANI_U8 sub
         // Log error
         if (!pHdr->fc.retry)
         {
-            if ( !(pMac->lim.retryPacketCnt & 0xf))
-            {
-                limLog(pMac, LOGE,
-                   FL("received Re/Assoc rsp frame is not a retry frame, "
-                     "frame count %d"), ++pMac->lim.retryPacketCnt);
-                limPrintMlmState(pMac, LOGE, psessionEntry->limMlmState);
-            }
-            else
-            {
-                pMac->lim.retryPacketCnt++;
-            }
-
+            limLog(pMac, LOGE,
+               FL("received Re/Assoc rsp frame is not a retry frame"));
+            limPrintMlmState(pMac, LOGE, psessionEntry->limMlmState);
         }
         vos_mem_free(pBeaconStruct);
         return;
@@ -467,12 +458,7 @@ limProcessAssocRspFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo, tANI_U8 sub
 
         return;
     }
-    if(pAssocRsp->ExtCap.present)
-    {
-        limLog(pMac, LOGE, FL("Filling tdls prohibited in session entry"));
-        psessionEntry->tdlsChanSwitProhibited =
-                       pAssocRsp->ExtCap.TDLSChanSwitProhibited ;
-    }
+
     if(!pAssocRsp->suppRatesPresent)
     {
         PELOGE(limLog(pMac, LOGE, FL("assoc response does not have supported rate set"));)

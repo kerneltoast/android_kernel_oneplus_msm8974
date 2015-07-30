@@ -797,7 +797,6 @@ void limPostSmeSetKeysCnf( tpAniSirGlobal pMac,
 
 
   /// Free up buffer allocated for mlmSetKeysReq
-  vos_mem_zero(pMlmSetKeysReq, sizeof(tLimMlmSetKeysReq));
   vos_mem_free( pMlmSetKeysReq );
   pMac->lim.gpLimMlmSetKeysReq = NULL;
 

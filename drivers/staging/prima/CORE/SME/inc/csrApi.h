@@ -785,12 +785,6 @@ typedef enum
    eCSR_HDD
 } eCsrStatsRequesterType;
 
-typedef enum
-{
-    INIT = 0,
-    REINIT,
-} driver_load_type;
-
 typedef struct tagPmkidCandidateInfo
 {
     tCsrBssid BSSID;
@@ -1220,11 +1214,6 @@ typedef struct tagCsrRoamInfo
     tSirEseBcnReportRsp *pEseBcnReportRsp;
 #endif /* FEATURE_WLAN_ESE_UPLOAD */
 #endif
-
-#ifdef WLAN_FEATURE_VOWIFI_11R
-    tANI_BOOLEAN is11rAssoc;
-#endif
-
     void* pRemainCtx;
     tANI_U32 rxChan;
 
@@ -1391,7 +1380,6 @@ typedef struct tagCsrLinkEstablishParams
 {
     tSirMacAddr peerMac;
     tANI_U8 uapsdQueues;
-    tANI_U8 qos;
     tANI_U8 maxSp;
     tANI_U8 isBufSta;
     tANI_U8 isOffChannelSupported;
@@ -1463,13 +1451,6 @@ typedef struct tagCsrEseBeaconReq
     tCsrEseBeaconReqParams bcnReq[SIR_ESE_MAX_MEAS_IE_REQS];
 } tCsrEseBeaconReq, *tpCsrEseBeaconReq;
 #endif /* FEATURE_WLAN_ESE && FEATURE_WLAN_ESE_UPLOAD */
-
-struct tagCsrDelStaParams
-{
-    tCsrBssid peerMacAddr;
-    u16 reason_code;
-    u8 subtype;
-};
 
 ////////////////////////////////////////////Common SCAN starts
 
@@ -1658,7 +1639,6 @@ eHalStatus csrSetBand(tHalHandle hHal, eCsrBand eBand);
 
 ---------------------------------------------------------------------------*/
 eCsrBand csrGetCurrentBand (tHalHandle hHal);
-
 
 #endif
 

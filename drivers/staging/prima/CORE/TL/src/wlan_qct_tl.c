@@ -1688,75 +1688,6 @@ WLANTL_ChangeSTAState
 
 /*===========================================================================
 
-  FUNCTION    WLANTL_UpdateTdlsSTAClient
-
-  DESCRIPTION
-
-    HDD will call this API when ENABLE_LINK happens and  HDD want to
-    register QoS or other params for TDLS peers.
-
-  DEPENDENCIES
-
-    A station must have been registered before the WMM/QOS registration is
-    called.
-
-  PARAMETERS
-
-   pvosGCtx:        pointer to the global vos context; a handle to TL's
-                    control block can be extracted from its context
-   wSTADescType:    STA Descriptor, contains information related to the
-                    new added STA
-
-  RETURN VALUE
-
-    The result code associated with performing the operation
-
-    VOS_STATUS_E_FAULT: Station ID is outside array boundaries or pointer to
-                        TL cb is NULL ; access would cause a page fault
-    VOS_STATUS_E_EXISTS: Station was not registered
-    VOS_STATUS_SUCCESS:  Everything is good :)
-
-  SIDE EFFECTS
-
-============================================================================*/
-
-VOS_STATUS
-WLANTL_UpdateTdlsSTAClient
-(
- v_PVOID_t                 pvosGCtx,
- WLAN_STADescType*         pwSTADescType
-)
-{
-  WLANTL_CbType* pTLCb = NULL;
-  WLANTL_STAClientType* pClientSTA = NULL;
-  /*------------------------------------------------------------------------
-    Extract TL control block
-   ------------------------------------------------------------------------*/
-  pTLCb = VOS_GET_TL_CB(pvosGCtx);
-  if ( NULL == pTLCb || ( WLAN_MAX_STA_COUNT <= pwSTADescType->ucSTAId))
-  {
-      TLLOGE(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_ERROR,
-              "WLAN TL:Invalid TL pointer from pvosGCtx on WLANTL_UpdateTdlsSTAClient"));
-      return VOS_STATUS_E_FAULT;
-  }
-
-  pClientSTA = pTLCb->atlSTAClients[pwSTADescType->ucSTAId];
-  if ((NULL == pClientSTA) || 0 == pClientSTA->ucExists)
-  {
-      TLLOGE(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_ERROR,
-                    "WLAN TL:Station not exists"));
-      return VOS_STATUS_E_FAILURE;
-  }
-
-  pClientSTA->wSTADesc.ucQosEnabled = pwSTADescType->ucQosEnabled;
-
-  return VOS_STATUS_SUCCESS;
-
-}
-
-
-/*===========================================================================
-
   FUNCTION    WLANTL_STAPtkInstalled
 
   DESCRIPTION
@@ -5812,6 +5743,11 @@ WLANTL_RxFrames
         if ( NULL != pClientSTA)
         {
             pClientSTA->interfaceStats.mgmtRx++;
+            if (WLANTL_IS_MGMT_ACTION_FRAME(ucFrmType))
+            {
+                pClientSTA->interfaceStats.mgmtActionRx++;
+
+            }
         }
 #endif
       }
@@ -6063,7 +5999,7 @@ WLANTL_RxFrames
         if ( NULL != pClientSTA)
         {
             tpSirMacMgmtHdr pMacHeader = WDA_GET_RX_MAC_HEADER( pvBDHeader );
-            if (!IS_BROADCAST_ADD(pMacHeader->da) && IS_MULTICAST_ADD(pMacHeader->da))
+            if( !WDA_IS_RX_BCAST(pvBDHeader) && ( pMacHeader->da[0] & 0x1))
             {
                 pClientSTA->interfaceStats.accessCategoryStats[ac].rxMcast++;
             }
@@ -6173,106 +6109,9 @@ WLANTL_CollectInterfaceStats
           "WLAN TL:Client Memory was not allocated on %s", __func__));
       return VOS_STATUS_E_FAILURE;
   }
-  TLLOG2(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_INFO_HIGH,
-              "WLAN TL: collect WIFI_STATS_IFACE results"));
-
   vos_mem_copy(vosDataBuff, &pTLCb->atlSTAClients[ucSTAId]->interfaceStats,
           sizeof(WLANTL_InterfaceStatsType));
   return VOS_STATUS_SUCCESS;
-}
-
-/*==========================================================================
-
-  FUNCTION    WLANTL_ClearInterfaceStats
-
-  DESCRIPTION
-    Utility function used by TL to clear the statitics
-
-  DEPENDENCIES
-
-
-  PARAMETERS
-
-    IN
-
-    ucSTAId:    station for which the statistics need to collected
-
-  RETURN VALUE
-    The result code associated with performing the operation
-
-    VOS_STATUS_E_INVAL:   Input parameters are invalid
-    VOS_STATUS_SUCCESS:   Everything is good :)
-
-  SIDE EFFECTS
-
-============================================================================*/
-VOS_STATUS
-WLANTL_ClearInterfaceStats
-(
-  v_PVOID_t       pvosGCtx,
-  v_U8_t          ucSTAId,
-  v_U8_t          statsClearReqMask
-)
-{
-    WLANTL_CbType*  pTLCb = NULL;
-    WLANTL_STAClientType* pClientSTA = NULL;
-    /*------------------------------------------------------------------------
-      Sanity check
-      ------------------------------------------------------------------------*/
-    if ( WLANTL_STA_ID_INVALID( ucSTAId ) )
-    {
-        TLLOGE(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_ERROR,
-               "WLAN TL:Invalid station id requested on WLANTL_CollectStats"));
-        return VOS_STATUS_E_FAULT;
-    }
-    /*------------------------------------------------------------------------
-      Extract TL control block
-      ------------------------------------------------------------------------*/
-    pTLCb = VOS_GET_TL_CB(pvosGCtx);
-    if ( NULL == pTLCb )
-    {
-        TLLOG2(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_INFO_HIGH,
-            "WLAN TL:Invalid TL pointer from pvosGCtx on WLANTL_CollectStats"));
-        return VOS_STATUS_E_FAULT;
-    }
-
-    pClientSTA = pTLCb->atlSTAClients[ucSTAId];
-    if ( NULL == pClientSTA )
-    {
-        TLLOG2(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_INFO_HIGH,
-                    "WLAN TL:Client Memory was not allocated on %s", __func__));
-        return VOS_STATUS_E_FAILURE;
-    }
-
-    if ((statsClearReqMask & WIFI_STATS_IFACE_AC) ||
-            (statsClearReqMask & WIFI_STATS_IFACE)) {
-        TLLOG2(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_INFO_HIGH,
-                    "WLAN TL:cleared WIFI_STATS_IFACE_AC results"));
-        pClientSTA->interfaceStats.accessCategoryStats[0].rxMcast = 0;
-        pClientSTA->interfaceStats.accessCategoryStats[1].rxMcast = 0;
-        pClientSTA->interfaceStats.accessCategoryStats[2].rxMcast = 0;
-        pClientSTA->interfaceStats.accessCategoryStats[3].rxMcast = 0;
-
-        pClientSTA->interfaceStats.accessCategoryStats[0].rxMpdu = 0;
-        pClientSTA->interfaceStats.accessCategoryStats[1].rxMpdu = 0;
-        pClientSTA->interfaceStats.accessCategoryStats[2].rxMpdu = 0;
-        pClientSTA->interfaceStats.accessCategoryStats[3].rxMpdu = 0;
-
-        pClientSTA->interfaceStats.accessCategoryStats[0].rxAmpdu = 0;
-        pClientSTA->interfaceStats.accessCategoryStats[1].rxAmpdu = 0;
-        pClientSTA->interfaceStats.accessCategoryStats[2].rxAmpdu = 0;
-        pClientSTA->interfaceStats.accessCategoryStats[3].rxAmpdu = 0;
-    }
-
-    if (statsClearReqMask & WIFI_STATS_IFACE) {
-        TLLOG2(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_INFO_HIGH,
-                    "WLAN TL:cleared WIFI_STATS_IFACE results"));
-        pClientSTA->interfaceStats.mgmtRx = 0;
-        pClientSTA->interfaceStats.rssiData = 0;
-        return VOS_STATUS_SUCCESS;
-    }
-
-    return VOS_STATUS_SUCCESS;
 }
 
 #endif /* WLAN_FEATURE_LINK_LAYER_STATS */
@@ -7094,30 +6933,17 @@ WLANTL_FatalErrorHandler
 v_VOID_t
 WLANTL_TLDebugMessage
 (
- v_U32_t debugFlags
+ v_BOOL_t   displaySnapshot
 )
 {
    vos_msg_t vosMsg;
    VOS_STATUS status;
 
-   if(debugFlags & WLANTL_DEBUG_TX_SNAPSHOT)
+   if(displaySnapshot)
    {
         vosMsg.reserved = 0;
         vosMsg.bodyptr  = NULL;
         vosMsg.type     = WLANTL_TX_SNAPSHOT;
-
-        status = vos_tx_mq_serialize( VOS_MODULE_ID_TL, &vosMsg);
-        if(status != VOS_STATUS_SUCCESS)
-        {
-            TLLOGE(VOS_TRACE(VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_ERROR, "TX Msg Posting Failed with status: %d",status));
-            return;
-        }
-   }
-   if (debugFlags & WLANTL_DEBUG_FW_CLEANUP)
-   {
-        vosMsg.reserved = 0;
-        vosMsg.bodyptr  = NULL;
-        vosMsg.type     = WLANTL_TX_FW_DEBUG;
 
         status = vos_tx_mq_serialize( VOS_MODULE_ID_TL, &vosMsg);
         if(status != VOS_STATUS_SUCCESS)
@@ -9248,10 +9074,6 @@ WLANTL_TxProcessMsg
 
   case WLANTL_TX_FATAL_ERROR:
     WLANTL_FatalErrorHandler(pvosGCtx);
-    break;
-
-  case WLANTL_TX_FW_DEBUG:
-    vos_fwDumpReq(274, 0, 0, 0, 0);
     break;
 
   default:
