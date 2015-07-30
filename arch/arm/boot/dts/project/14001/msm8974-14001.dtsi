@@ -36,10 +36,6 @@
 };
 
 &soc {
-	qcom,wcnss-wlan@fb000000 {
-		qcom,wcnss-pm = <11 21 1200 1 1>;
-	};
-
 	qcom,qcrypto1@fd440000 {
 		status = "disabled";
 	};
