@@ -284,19 +284,20 @@ static ssize_t userspace_minfreq_write(struct device *dev,
 static ssize_t boost_freqs_read(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%u %u %u\n", boost_freq[0], boost_freq[1], boost_freq[2]);
+	return snprintf(buf, PAGE_SIZE, "%u %u %u\n",
+			boost_freq[0], boost_freq[1], boost_freq[2]);
 }
 
 static ssize_t enabled_read(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%u\n", enabled);
+	return snprintf(buf, PAGE_SIZE, "%u\n", enabled);
 }
 
 static ssize_t userspace_minfreq_read(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%u\n", user_minfreq);
+	return snprintf(buf, PAGE_SIZE, "%u\n", user_minfreq);
 }
 
 static DEVICE_ATTR(boost_freqs, S_IRUGO | S_IWUGO,
