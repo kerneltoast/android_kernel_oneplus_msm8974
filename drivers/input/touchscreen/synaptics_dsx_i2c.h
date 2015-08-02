@@ -253,7 +253,7 @@ struct synaptics_rmi4_data {
 	uint32_t device_cid;
 	unsigned int old_status;
 	unsigned int reset_count;
-	struct notifier_block lcd_notif;
+	struct notifier_block fb_notif;
 	atomic_t syna_use_gesture;
 	atomic_t double_tap_enable;
 	atomic_t camera_enable;
