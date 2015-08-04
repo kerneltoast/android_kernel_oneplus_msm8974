@@ -22431,7 +22431,7 @@ WDI_ResponseTimerCB
     }
 #ifndef WDI_RE_ENABLE_WIFI_ON_WDI_TIMEOUT
     wpalWcnssResetIntr();
-    if(wpalIslogPInProgress())
+    if(wpalIsWDresetInProgress())
     {
       if(wpalIsSsrPanicOnFailure())
           wpalDevicePanic();
@@ -30684,7 +30684,7 @@ WDI_ProcessHT40OBSSScanInd
 
   /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
-  WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_INFO,
+  WPAL_TRACE(eWLAN_MODULE_DAL_CTRL, eWLAN_PAL_TRACE_LEVEL_ERROR,
          "%s", __func__);
 
   /*-------------------------------------------------------------------------
