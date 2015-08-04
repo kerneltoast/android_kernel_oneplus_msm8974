@@ -67,6 +67,8 @@
   Commom Type definitons
  ---------------------------------------------------------------------------*/
 
+#define DISA_MAX_PAYLOAD_SIZE   1600
+
 //This is to force compiler to use the maximum of an int ( 4 bytes )
 #define WLAN_HAL_MAX_ENUM_SIZE    0x7FFFFFFF
 #define WLAN_HAL_MSG_TYPE_MAX_ENUM_SIZE    0x7FFF
@@ -515,6 +517,12 @@ typedef enum
    WLAN_HAL_TDLS_CHAN_SWITCH_RSP            = 291,
    WLAN_HAL_MAC_SPOOFED_SCAN_REQ            = 292,
    WLAN_HAL_MAC_SPOOFED_SCAN_RSP            = 293,
+   /* LGE DISA encrypt-decrypt Messages */
+   WLAN_HAL_ENCRYPT_DATA_REQ                = 294,
+   WLAN_HAL_ENCRYPT_DATA_RSP                = 295,
+
+   WLAN_HAL_FW_STATS_REQ                    = 296,
+   WLAN_HAL_FW_STATS_RSP                    = 297,
 
    WLAN_HAL_MSG_MAX = WLAN_HAL_MSG_TYPE_MAX_ENUM_SIZE
 }tHalHostMsgType;
@@ -1510,6 +1518,114 @@ typedef PACKED_PRE struct PACKED_POST
    tHalMsgHeader header;
    tHalFinishScanRspParams finishScanRspParams;
 }  tHalFinishScanRspMsg, *tpHalFinishScanRspMsg;
+
+typedef PACKED_PRE struct PACKED_POST
+{
+   tSetStaKeyParams keyParams;
+   uint8 pn[6];
+} tHalEncConfigParams;
+
+typedef PACKED_PRE struct PACKED_POST
+{
+   uint16 length;
+   uint8  data[DISA_MAX_PAYLOAD_SIZE];
+} tHalDisaPayload;
+
+typedef PACKED_PRE struct PACKED_POST
+{
+#ifdef BYTE_ORDER_BIG_ENDIAN
+    uint8   reserved1          : 1;
+    uint8   ackpolicy          : 2;
+    uint8   eosp               : 1;
+    uint8   tid                : 4;
+
+    uint8   appsbufferstate    : 8;
+#else
+    uint8   appsbufferstate    : 8;
+
+    uint8   tid                : 4;
+    uint8   eosp               : 1;
+    uint8   ackpolicy          : 2;
+    uint8   reserved1          : 1;
+#endif
+} tHalQosCtrlFieldType;
+
+typedef PACKED_PRE struct PACKED_POST
+ {
+#ifdef  BYTE_ORDER_BIG_ENDIAN
+    uint16 subtype   : 4;
+    uint16 type      : 2;
+    uint16 protocol  : 2;
+
+    uint16 order     : 1;
+    uint16 wep       : 1;
+    uint16 moredata  : 1;
+    uint16 pm        : 1;
+    uint16 retry     : 1;
+    uint16 morefrag  : 1;
+    uint16 fromds    : 1;
+    uint16 tods      : 1;
+#else
+
+    uint16 tods      : 1;
+    uint16 fromds    : 1;
+    uint16 morefrag  : 1;
+    uint16 retry     : 1;
+    uint16 pm        : 1;
+    uint16 moredata  : 1;
+    uint16 wep       : 1;
+    uint16 order     : 1;
+
+    uint16 protocol  : 2;
+    uint16 type      : 2;
+    uint16 subtype   : 4;
+#endif
+} tHalFrmCtrlType;
+
+typedef PACKED_PRE struct PACKED_POST
+{
+   /* Frame control field */
+   tHalFrmCtrlType fc;
+   /* Duration ID */
+   uint16 usDurationId;
+   /* Address 1 field */
+   uint8 vA1[HAL_MAC_ADDR_LEN];
+   /* Address 2 field */
+   uint8 vA2[HAL_MAC_ADDR_LEN];
+   /* Address 3 field */
+   uint8 vA3[HAL_MAC_ADDR_LEN];
+   /* Sequence control field */
+   uint16 seqNum;
+   /* Optional A4 address */
+   uint8 optvA4[HAL_MAC_ADDR_LEN];
+   /* Optional QOS control field */
+   tHalQosCtrlFieldType usQosCtrl;
+} tHal80211Header;
+
+typedef PACKED_PRE struct PACKED_POST
+{
+   tHal80211Header macHeader;
+   tHalEncConfigParams encParams;
+   tHalDisaPayload data;
+} tSetEncryptedDataParams, *tpSetEncryptedDataParams;
+
+typedef PACKED_PRE struct PACKED_POST
+{
+   tHalMsgHeader header;
+   tSetEncryptedDataParams encryptedDataParams;
+}  tSetEncryptedDataReqMsg, *tpSetEncryptedDataReqMsg;
+
+typedef PACKED_PRE struct PACKED_POST
+{
+   tANI_U32 status;
+   tHalDisaPayload encryptedPayload;
+} tSetEncryptedDataRspParams, *tpSetEncryptedDataRspParams;
+
+typedef PACKED_PRE struct PACKED_POST
+{
+   tHalMsgHeader header;
+   tSetEncryptedDataRspParams encryptedDataRspParams;
+}  tSetEncryptedDataRspMsg, *tpSetEncryptedDataRspMsg;
 
 /*---------------------------------------------------------------------------
   WLAN_HAL_CONFIG_STA_REQ
@@ -3069,6 +3185,43 @@ typedef PACKED_PRE struct PACKED_POST
    tHalMsgHeader  header;
    tHalStatsRspParams statsRspParams;
 } tHalStatsRspMsg, *tpHalStatsRspMsg;
+
+/*---------------------------------------------------------------------------
+ * WLAN_HAL_FW_STATS_REQ
+ *---------------------------------------------------------------------------*/
+ typedef PACKED_PRE struct PACKED_POST
+{
+   tANI_U32 type;
+}tHalfwStatsReqParams, *tpHalfwStatsReqParams;
+
+typedef PACKED_PRE struct PACKED_POST
+{
+   tHalMsgHeader        header;
+   tHalfwStatsReqParams   fwstatsReqParams;
+} tHalfwStatsReqMsg, *tpHalfwStatsReqMsg;
+
+/*---------------------------------------------------------------------------
+ * WLAN_HAL_FW_STATS_RSP
+ *---------------------------------------------------------------------------*/
+ typedef PACKED_PRE struct PACKED_POST
+{
+   tANI_U32 type;
+   tANI_U32 length;
+   tANI_U8  data[1];
+
+}tHalfwStatsRspParams, *tpHalfwStatsRspParams;
+
+typedef PACKED_PRE struct PACKED_POST
+{
+   tHalMsgHeader        header;
+   tHalfwStatsRspParams   fwstatsRspParams;
+} tHalfwStatsRspMsg, *tpHalfwStatsRspMsg;
+
+typedef enum
+{
+   FW_UBSP_STATS = 1,
+} fwstatstype;
+
 
 /*---------------------------------------------------------------------------
  * WLAN_HAL_SET_LINK_ST_REQ
@@ -5584,6 +5737,9 @@ typedef PACKED_PRE struct PACKED_POST
 #define WLAN_COEX_IND_TYPE_SCANS_ARE_NOT_COMPROMISED_BY_COEX (3)
 #define WLAN_COEX_IND_TYPE_DISABLE_AGGREGATION_IN_2p4 (4)
 #define WLAN_COEX_IND_TYPE_ENABLE_AGGREGATION_IN_2p4 (5)
+#define WLAN_COEX_IND_TYPE_ENABLE_UAPSD (6)
+#define WLAN_COEX_IND_TYPE_DISABLE_UAPSD (7)
+#define WLAN_COEX_IND_TYPE_CXM_FEATURES_NOTIFICATION (8)
 
 typedef PACKED_PRE struct PACKED_POST
 {
@@ -6546,6 +6702,11 @@ typedef enum {
     EXTENDED_SCAN          = 42,
     DYNAMIC_WMM_PS         = 43,
     MAC_SPOOFED_SCAN       = 44,
+    BMU_ERROR_GENERIC_RECOVERY = 45,
+    DISA                   = 46,
+    FW_STATS               = 47,
+    WPS_PRBRSP_TMPL        = 48,
+    BCN_IE_FLT_DELTA       = 49,
     MAX_FEATURE_SUPPORTED  = 128,
 } placeHolderInCapBitmap;
 
@@ -6572,6 +6733,7 @@ typedef PACKED_PRE struct PACKED_POST{
 #define IS_TDLS_SCAN_COEXISTENCE_SUPPORTED_BY_HOST ((!!(halMsg_GetHostWlanFeatCaps(TDLS_SCAN_COEXISTENCE))))
 #define IS_DYNAMIC_WMM_PS_SUPPORTED_BY_HOST ((!!(halMsg_GetHostWlanFeatCaps(DYNAMIC_WMM_PS))))
 #define IS_MAC_SPOOF_SCAN_SUPPORTED_BY_HOST ((!!(halMsg_GetHostWlanFeatCaps(MAC_SPOOFED_SCAN))))
+#define IS_NEW_BMU_ERROR_RECOVERY_SUPPORTED_BY_HOST ((!!(halMsg_GetHostWlanFeatCaps(BMU_ERROR_GENERIC_RECOVERY))))
 
 tANI_U8 halMsg_GetHostWlanFeatCaps(tANI_U8 feat_enum_value);
 

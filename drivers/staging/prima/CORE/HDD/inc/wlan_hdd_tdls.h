@@ -195,6 +195,7 @@ typedef struct _hddTdlsPeer_t {
     tANI_U16    tx_pkt;
     tANI_U16    rx_pkt;
     tANI_U8     uapsdQueues;
+    tANI_U8     qos;
     tANI_U8     maxSp;
     tANI_U8     isBufSta;
     tANI_U8     isOffChannelSupported;
@@ -340,6 +341,8 @@ void wlan_hdd_tdls_get_wifi_hal_state(hddTdlsPeer_t *curr_peer,
                                       tANI_S32 *reason);
 int wlan_hdd_set_callback(hddTdlsPeer_t *curr_peer,
                           cfg80211_exttdls_callback callback);
+int hdd_set_tdls_scan_type(hdd_adapter_t *pAdapter,
+                   tANI_U8 *ptr);
 
 // tdlsoffchan
 hddTdlsPeer_t *wlan_hdd_tdls_get_first_connected_peer(hdd_adapter_t *pAdapter);

@@ -64,7 +64,7 @@
 #ifdef CONFIG_ENABLE_LINUX_REG
 
 static v_REGDOMAIN_t cur_reg_domain = REGDOMAIN_COUNT;
-static char linux_reg_cc[2] = {0, 0};
+static  char linux_reg_cc[2] = {0, 0};
 static v_REGDOMAIN_t temp_reg_domain = REGDOMAIN_COUNT;
 
 #else
@@ -166,7 +166,7 @@ static CountryInfoTable_t countryInfoTable =
       {REGDOMAIN_ETSI, {'D', 'E'}}, //GERMANY
       {REGDOMAIN_ETSI, {'D', 'K'}}, //DENMARK
       {REGDOMAIN_FCC, {'D', 'O'}}, //DOMINICAN REPUBLIC
-      {REGDOMAIN_ETSI, {'D', 'Z'}}, //       
+      {REGDOMAIN_ETSI, {'D', 'Z'}}, //ALGERIA
       {REGDOMAIN_ETSI, {'E', 'C'}}, //ECUADOR
       {REGDOMAIN_ETSI, {'E', 'E'}}, //ESTONIA
       {REGDOMAIN_ETSI, {'E', 'G'}}, //EGYPT
@@ -338,7 +338,7 @@ static CountryInfoTable_t countryInfoTable =
         { REGDOMAIN_ETSI,    {'D', 'K'}},  //DENMARK
         { REGDOMAIN_WORLD,   {'D', 'M'}},  //DOMINICA
         { REGDOMAIN_APAC,    {'D', 'O'}},  //DOMINICAN REPUBLIC
-        { REGDOMAIN_ETSI,    {'D', 'Z'}},  //       
+        { REGDOMAIN_ETSI,    {'D', 'Z'}},  //ALGERIA
         { REGDOMAIN_APAC,    {'E', 'C'}},  //ECUADOR
         { REGDOMAIN_ETSI,    {'E', 'E'}},  //ESTONIA
         { REGDOMAIN_N_AMER_EXC_FCC, {'E', 'G'}},  //EGYPT
@@ -3123,8 +3123,6 @@ v_U16_t vos_chan_to_freq(v_U8_t chanNum)
 
    return (0);
 }
-
-/* okkwon change point */
 /* function to tell about if Default country is Non-Zero */
 v_BOOL_t vos_is_nv_country_non_zero()
 {
@@ -3307,9 +3305,10 @@ VOS_STATUS vos_nv_getRegDomainFromCountryCode( v_REGDOMAIN_t *pRegDomain,
         {
             INIT_COMPLETION(pHddCtx->linux_reg_req);
             regulatory_hint(wiphy, country_code);
+            /* Wait for 300ms*/
             wait_result = wait_for_completion_interruptible_timeout(
                                                             &pHddCtx->linux_reg_req,
-                                                            LINUX_REG_WAIT_TIME);
+                                                            msecs_to_jiffies(LINUX_REG_WAIT_TIME));
 
             /* if the country information does not exist with the kernel,
                then the driver callback would not be called */
@@ -3462,13 +3461,25 @@ int vos_update_nv_table_from_wiphy_band(void *hdd_ctx,
             else if (wiphy->bands[i]->channels[j].flags &
                     (IEEE80211_CHAN_RADAR | IEEE80211_CHAN_PASSIVE_SCAN))
             {
-                pnvEFSTable->halnv.tables.regDomains[temp_reg_domain].channels[k].enabled =
-                    NV_CHANNEL_DFS;
+#ifdef FEATURE_WLAN_CH144
+                if ((RF_CHAN_144 == k) && (E_NV_V3 != vos_nv_getNvVersion()))
+                {
+                    //Do not enable channel 144 when NV version is not NV3
+                }
+                else
+#endif
+                {
+                    pnvEFSTable->halnv.tables.regDomains[temp_reg_domain].\
+                        channels[k].enabled = NV_CHANNEL_DFS;
+                }
 
                 // Cap the TX power by the power limits specified in NV for the regdomain
-                wiphy->bands[i]->channels[j].max_power =
-                        MIN(gnvEFSTable->halnv.tables.regDomains[temp_reg_domain].channels[k].pwrLimit,
-                            (tANI_S8) ((wiphy->bands[i]->channels[j].max_power)));
+                if (gnvEFSTable->halnv.tables.regDomains[temp_reg_domain].channels[k].pwrLimit)
+                {
+                    wiphy->bands[i]->channels[j].max_power =
+                           MIN(gnvEFSTable->halnv.tables.regDomains[temp_reg_domain].channels[k].pwrLimit,
+                              (tANI_S8) ((wiphy->bands[i]->channels[j].max_power)));
+                }
 
                 pnvEFSTable->halnv.tables.regDomains[temp_reg_domain].channels[k].pwrLimit =
                     (tANI_S8) ((wiphy->bands[i]->channels[j].max_power));
@@ -3523,9 +3534,12 @@ int vos_update_nv_table_from_wiphy_band(void *hdd_ctx,
                 }
 
                 // Cap the TX power by the power limits specified in NV for the regdomain
-                wiphy->bands[i]->channels[j].max_power =
-                        MIN(gnvEFSTable->halnv.tables.regDomains[temp_reg_domain].channels[k].pwrLimit,
-                            (tANI_S8) ((wiphy->bands[i]->channels[j].max_power)));
+                if (gnvEFSTable->halnv.tables.regDomains[temp_reg_domain].channels[k].pwrLimit)
+                {
+                    wiphy->bands[i]->channels[j].max_power =
+                           MIN(gnvEFSTable->halnv.tables.regDomains[temp_reg_domain].channels[k].pwrLimit,
+                              (tANI_S8) ((wiphy->bands[i]->channels[j].max_power)));
+                }
 
                 /* max_power is in dBm */
                 pnvEFSTable->halnv.tables.regDomains[temp_reg_domain].channels[k].pwrLimit =
@@ -3639,9 +3653,9 @@ int wlan_hdd_linux_reg_notifier(struct wiphy *wiphy,
     VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,
                "cfg80211 reg notifier callback for country for initiator %d", request->initiator);
 
-    if (TRUE == isWDresetInProgress())
+    if (vos_is_logp_in_progress(VOS_MODULE_ID_VOSS, NULL))
     {
-       VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
+       VOS_TRACE( VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,
                    ("SSR is in progress") );
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0))
        return;
@@ -3702,7 +3716,11 @@ int wlan_hdd_linux_reg_notifier(struct wiphy *wiphy,
     else if (request->initiator == NL80211_REGDOM_SET_BY_USER ||
              request->initiator ==  NL80211_REGDOM_SET_BY_CORE)
     {
-
+        /* Copy the country of kernel, so that we will not send the reg hint
+         * if kernel country and driver country are same during load.
+         */
+        linux_reg_cc[0] = request->alpha2[0];
+        linux_reg_cc[1] = request->alpha2[1];
         /* first lookup the country in the local database */
 
         if (!(pnvEFSTable->halnv.tables.defaultCountryTable.countryCode[0] == '0' &&
@@ -3753,8 +3771,6 @@ int wlan_hdd_linux_reg_notifier(struct wiphy *wiphy,
         }
 
         cur_reg_domain = temp_reg_domain;
-        linux_reg_cc[0] = country_code[0];
-        linux_reg_cc[1] = country_code[1];
 
         /* now pass the new country information to sme */
         if (request->alpha2[0] == '0' && request->alpha2[1] == '0')
@@ -3896,6 +3912,18 @@ VOS_STATUS vos_init_wiphy_from_nv_bin(void)
     return VOS_STATUS_SUCCESS;
 }
 
+
+/**------------------------------------------------------------------------
+  \brief vos_getCurrentCountryCode -
+  \param CC  - country code
+  \return None
+  \sa
+  -------------------------------------------------------------------------*/
+
+void vos_getCurrentCountryCode( tANI_U8 *cc)
+{
+    vos_mem_copy(cc, linux_reg_cc, 2);
+}
 
 #else
 

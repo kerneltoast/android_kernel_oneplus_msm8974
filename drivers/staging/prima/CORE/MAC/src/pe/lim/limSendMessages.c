@@ -71,6 +71,8 @@ static tBeaconFilterIe beaconFilterTable[] = {
    ,{SIR_MAC_VHT_OPMODE_EID,     0,  {0, 0, 0, 0}}
    ,{SIR_MAC_VHT_OPERATION_EID,  0,  {0, 0, VHTOP_CHWIDTH_MASK, 0}}
 #endif
+   ,{SIR_MAC_RSN_EID,             1, {0, 0, 0,                    0}}
+   ,{SIR_MAC_WPA_EID,             1, {0, 0, 0,                    0}}
 };
 
 /**
@@ -658,7 +660,7 @@ tSirRetStatus limSendHT40OBSSScanInd(tpAniSirGlobal pMac,
     ht40OBSSScanInd->OBSSScanActivityThreshold =
            psessionEntry->obssHT40ScanParam.OBSSScanActivityThreshold;
     /* TODO update it from the associated BSS*/
-    ht40OBSSScanInd->currentOperatingClass = 1;
+    ht40OBSSScanInd->currentOperatingClass = 81;
 
     validChannelNum = WNI_CFG_VALID_CHANNEL_LIST_LEN;
     if (wlan_cfgGetStr(pMac, WNI_CFG_VALID_CHANNEL_LIST,
@@ -794,7 +796,16 @@ tSirRetStatus limSendBeaconFilterInfo(tpAniSirGlobal pMac,tpPESession psessionEn
         retCode = eSIR_FAILURE;
         return retCode;
     }
-    msgSize = sizeof(tBeaconFilterMsg) + sizeof(beaconFilterTable);
+    /*
+     * Dont send the WPA and RSN iE in filter if FW doesnt support
+     * IS_FEATURE_BCN_FLT_DELTA_ENABLE,
+     * else host will get all beacons which have RSN IE or WPA IE
+     */
+    if(IS_FEATURE_BCN_FLT_DELTA_ENABLE)
+        msgSize = sizeof(tBeaconFilterMsg) + sizeof(beaconFilterTable);
+    else
+        msgSize = sizeof(tBeaconFilterMsg) + sizeof(beaconFilterTable) - (2 * sizeof(tBeaconFilterIe));
+
     pBeaconFilterMsg = vos_mem_malloc(msgSize);
     if ( NULL == pBeaconFilterMsg )
     {
@@ -810,7 +821,16 @@ tSirRetStatus limSendBeaconFilterInfo(tpAniSirGlobal pMac,tpPESession psessionEn
     pBeaconFilterMsg->capabilityMask = CAPABILITY_FILTER_MASK;
     pBeaconFilterMsg->beaconInterval = (tANI_U16) psessionEntry->beaconParams.beaconInterval;
     // Fill in number of IEs in beaconFilterTable
-    pBeaconFilterMsg->ieNum = (tANI_U16) (sizeof(beaconFilterTable) / sizeof(tBeaconFilterIe));
+    /*
+     * Dont send the WPA and RSN iE in filter if FW doesnt support
+     * IS_FEATURE_BCN_FLT_DELTA_ENABLE,
+     * else host will get all beacons which have RSN IE or WPA IE
+     */
+    if(IS_FEATURE_BCN_FLT_DELTA_ENABLE)
+        pBeaconFilterMsg->ieNum = (tANI_U16) (sizeof(beaconFilterTable) / sizeof(tBeaconFilterIe));
+    else
+        pBeaconFilterMsg->ieNum = (tANI_U16) ((sizeof(beaconFilterTable) / sizeof(tBeaconFilterIe)) - 2);
+
     //Fill the BSSIDX
     pBeaconFilterMsg->bssIdx = psessionEntry->bssIdx;
 
@@ -873,8 +893,9 @@ tSirRetStatus limSendModeUpdate(tpAniSirGlobal pMac,
     msgQ.reserved = 0;
     msgQ.bodyptr = pVhtOpMode;
     msgQ.bodyval = 0;
-    PELOG3(limLog( pMac, LOG3,
-                FL( "Sending WDA_UPDATE_OP_MODE" ));)
+    limLog( pMac, LOG1,
+                FL( "Sending WDA_UPDATE_OP_MODE, opMode = %d staid = %d" ),
+                                    pVhtOpMode->opMode,pVhtOpMode->staId);
     if(NULL == psessionEntry)
     {
         MTRACE(macTraceMsgTx(pMac, NO_SESSION, msgQ.type));

@@ -913,6 +913,7 @@ tLimMlmOemDataRsp       *gpLimMlmOemDataRsp;
     tANI_U8 gLimIbssStaLimit;
     tANI_U8 probeCounter;
     tANI_U8 maxProbe;
+    tANI_U8 retryPacketCnt;
 
     // Flag to debug remain on channel
     tANI_BOOLEAN gDebugP2pRemainOnChannel;
@@ -1073,6 +1074,7 @@ typedef struct sAniSirGlobal
 
     v_BOOL_t isCoexScoIndSet;
     v_U8_t miracast_mode;
+    tANI_BOOLEAN miracastVendorConfig;
 } tAniSirGlobal;
 
 #ifdef FEATURE_WLAN_TDLS

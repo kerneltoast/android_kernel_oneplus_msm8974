@@ -3011,7 +3011,7 @@ void csrForcedInitialRoamTo5GHTimerCallback(void *context)
     if (eCSR_NEIGHBOR_ROAM_STATE_CONNECTED != pNeighborRoamInfo->neighborRoamState)
     {
         smsLog(pMac, LOGE, FL("Received in not CONNECTED state. Ignore it"));
-        status = eHAL_STATUS_FAILURE;
+        return;
     }
 
     //it may possible user reconnected / DUT roamed to other band ap btw
@@ -3020,7 +3020,7 @@ void csrForcedInitialRoamTo5GHTimerCallback(void *context)
     {
         smsLog(pMac, LOGE,
                FL("DUT is already connected to 5GH ap, so no need to trigger forced roam."));
-        status = eHAL_STATUS_FAILURE;
+        return;
     }
 
     //keep track this scan & roam is due to Forced initial roam to 5GHz
@@ -3033,7 +3033,7 @@ void csrForcedInitialRoamTo5GHTimerCallback(void *context)
     if (eHAL_STATUS_SUCCESS != status)
     {
         smsLog(pMac, LOGE, FL("csrRoamOffloadScan stop scan cmd got failed status = %d"), status);
-        status = eHAL_STATUS_FAILURE;
+        return;
     }
 
     // MUKUL TODO: whatever we are doing should we need to move
@@ -4940,6 +4940,18 @@ void csrNeighborRoamRequestHandoff(tpAniSirGlobal pMac)
         return;
     }
 
+    if (eANI_BOOLEAN_FALSE ==
+         csrNeighborRoamGetHandoffAPInfo(pMac, &handoffNode))
+    {
+        VOS_TRACE (VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_ERROR,
+                   FL("failed to obtain handoff AP"));
+        return;
+    }
+
+    VOS_TRACE (VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_DEBUG,
+               FL("HANDOFF CANDIDATE BSSID "MAC_ADDRESS_STR),
+                   MAC_ADDR_ARRAY(handoffNode.pBssDescription->bssId));
+
     vos_mem_zero(&roamInfo, sizeof(tCsrRoamInfo));
     csrRoamCallCallback(pMac, pNeighborRoamInfo->csrSessionId, &roamInfo, roamId, eCSR_ROAM_FT_START, 
                 eSIR_SME_SUCCESS);
@@ -4947,11 +4959,6 @@ void csrNeighborRoamRequestHandoff(tpAniSirGlobal pMac)
     vos_mem_zero(&roamInfo, sizeof(tCsrRoamInfo));
     CSR_NEIGHBOR_ROAM_STATE_TRANSITION(eCSR_NEIGHBOR_ROAM_STATE_REASSOCIATING)
     
-    csrNeighborRoamGetHandoffAPInfo(pMac, &handoffNode);
-    VOS_TRACE (VOS_MODULE_ID_SME, VOS_TRACE_LEVEL_DEBUG,
-               FL("HANDOFF CANDIDATE BSSID "MAC_ADDRESS_STR),
-                                            MAC_ADDR_ARRAY(handoffNode.pBssDescription->bssId));
-
 #ifdef FEATURE_WLAN_LFR_METRICS
     /* LFR metrics - pre-auth completion metric.
        Send the event to supplicant that pre-auth successfully completed */
@@ -5059,13 +5066,13 @@ tANI_BOOLEAN csrNeighborRoamIs11rAssoc(tpAniSirGlobal pMac)
     \param  pMac - The handle returned by macOpen.
             pHandoffNode - AP node that is the handoff candidate returned
 
-    \return VOID
+    \return eANI_BOOLEAN_TRUE if able find handoff AP, eANI_BOOLEAN_FALSE otherwise
 
 ---------------------------------------------------------------------------*/
-void csrNeighborRoamGetHandoffAPInfo(tpAniSirGlobal pMac, tpCsrNeighborRoamBSSInfo pHandoffNode)
+tANI_BOOLEAN csrNeighborRoamGetHandoffAPInfo(tpAniSirGlobal pMac, tpCsrNeighborRoamBSSInfo pHandoffNode)
 {
     tpCsrNeighborRoamControlInfo    pNeighborRoamInfo = &pMac->roam.neighborRoamInfo;
-    tpCsrNeighborRoamBSSInfo        pBssNode;
+    tpCsrNeighborRoamBSSInfo        pBssNode = NULL;
     
     VOS_ASSERT(NULL != pHandoffNode); 
         
@@ -5100,9 +5107,15 @@ void csrNeighborRoamGetHandoffAPInfo(tpAniSirGlobal pMac, tpCsrNeighborRoamBSSIn
         pBssNode = csrNeighborRoamGetRoamableAPListNextEntry(pMac, &pNeighborRoamInfo->roamableAPList, NULL);
         NEIGHBOR_ROAM_DEBUG(pMac, LOG1, FL("Number of Handoff candidates = %d"), csrLLCount(&pNeighborRoamInfo->roamableAPList));
     }
+
+    if (NULL == pBssNode)
+    {
+        return eANI_BOOLEAN_FALSE;
+    }
+
     vos_mem_copy(pHandoffNode, pBssNode, sizeof(tCsrNeighborRoamBSSInfo));
 
-    return;
+    return eANI_BOOLEAN_TRUE;
 }
 
 /* ---------------------------------------------------------------------------

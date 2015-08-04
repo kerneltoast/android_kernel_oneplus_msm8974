@@ -98,6 +98,7 @@ If there is other IOT issue because of this bandage, define NO_PAD...
 #define TDLS_DEBUG_LOG_LEVEL VOS_TRACE_LEVEL_INFO
 #endif
 
+
 #ifdef FEATURE_WLAN_TDLS_INTERNAL
 /* forword declarations */
 static tSirRetStatus limTdlsDisAddSta(tpAniSirGlobal pMac, tSirMacAddr peerMac,
@@ -1114,6 +1115,13 @@ static tSirRetStatus limSendTdlsDisRspFrame(tpAniSirGlobal pMac,
         PopulateDot11fTdlsOffchannelParams( pMac, psessionEntry,
                                             &tdlsDisRsp.SuppChannels,
                                             &tdlsDisRsp.SuppOperatingClasses);
+
+    if ( 1 == pMac->lim.gLimTDLSOffChannelEnabled &&
+         ( pMac->roam.configParam.bandCapability != eCSR_BAND_24) )
+    {
+        tdlsDisRsp.HT2040BSSCoexistence.present = 1;
+        tdlsDisRsp.HT2040BSSCoexistence.infoRequest = 1;
+    }
     /* 
      * now we pack it.  First, how much space are we going to need?
      */
@@ -1315,6 +1323,7 @@ tSirRetStatus limSendTdlsLinkSetupReqFrame(tpAniSirGlobal pMac,
     void               *pPacket;
     eHalStatus          halstatus;
     uint32              selfDot11Mode;
+    tpSirMacCapabilityInfo pCapInfo;
 //  Placeholder to support different channel bonding mode of TDLS than AP.
 //  Today, WNI_CFG_CHANNEL_BONDING_MODE will be overwritten when connecting to AP
 //  To support this feature, we need to introduce WNI_CFG_TDLS_CHANNEL_BONDING_MODE
@@ -1344,6 +1353,11 @@ tSirRetStatus limSendTdlsLinkSetupReqFrame(tpAniSirGlobal pMac,
          limLog(pMac, LOGP,
                    FL("could not retrieve Capabilities value"));
     }
+
+    pCapInfo = (tpSirMacCapabilityInfo) &caps;
+    /* Export QOS capability  */
+    pCapInfo->qos = 1;
+
     swapBitField16(caps, ( tANI_U16* )&tdlsSetupReq.Capabilities );
 
     /* populate supported rate IE */
@@ -1402,6 +1416,14 @@ tSirRetStatus limSendTdlsLinkSetupReqFrame(tpAniSirGlobal pMac,
         PopulateDot11fTdlsOffchannelParams( pMac, psessionEntry,
                                             &tdlsSetupReq.SuppChannels,
                                             &tdlsSetupReq.SuppOperatingClasses);
+
+    if ( 1 == pMac->lim.gLimTDLSOffChannelEnabled &&
+         ( pMac->roam.configParam.bandCapability != eCSR_BAND_24))
+    {
+        tdlsSetupReq.HT2040BSSCoexistence.present = 1;
+        tdlsSetupReq.HT2040BSSCoexistence.infoRequest = 1;
+    }
+
     /*
      * now we pack it.  First, how much space are we going to need?
      */
@@ -1737,6 +1759,7 @@ static tSirRetStatus limSendTdlsSetupRspFrame(tpAniSirGlobal pMac,
     void               *pPacket;
     eHalStatus          halstatus;
     uint32             selfDot11Mode;
+    tpSirMacCapabilityInfo pCapInfo;
 //  Placeholder to support different channel bonding mode of TDLS than AP.
 //  Today, WNI_CFG_CHANNEL_BONDING_MODE will be overwritten when connecting to AP
 //  To support this feature, we need to introduce WNI_CFG_TDLS_CHANNEL_BONDING_MODE
@@ -1769,6 +1792,11 @@ static tSirRetStatus limSendTdlsSetupRspFrame(tpAniSirGlobal pMac,
          limLog(pMac, LOGP,
                    FL("could not retrieve Capabilities value"));
     }
+
+    pCapInfo = (tpSirMacCapabilityInfo) &caps;
+    /* Export QoS capability */
+    pCapInfo->qos = 1;
+
     swapBitField16(caps, ( tANI_U16* )&tdlsSetupRsp.Capabilities );
 
     /* ipopulate supported rate IE */
@@ -1824,6 +1852,12 @@ static tSirRetStatus limSendTdlsSetupRspFrame(tpAniSirGlobal pMac,
 
     tdlsSetupRsp.Status.status = setupStatus ;
 
+    if ( 1 == pMac->lim.gLimTDLSOffChannelEnabled &&
+         ( pMac->roam.configParam.bandCapability != eCSR_BAND_24))
+    {
+        tdlsSetupRsp.HT2040BSSCoexistence.present = 1;
+        tdlsSetupRsp.HT2040BSSCoexistence.infoRequest = 1;
+    }
     /* 
      * now we pack it.  First, how much space are we going to need?
      */
@@ -2008,6 +2042,13 @@ tSirRetStatus limSendTdlsLinkSetupCnfFrame(tpAniSirGlobal pMac, tSirMacAddr peer
     else if (CHECK_BIT(peerCapability, TDLS_PEER_HT_CAP)) /* Check peer is HT capable */
     {
        PopulateDot11fHTInfo( pMac, &tdlsSetupCnf.HTInfo, psessionEntry );
+    }
+
+    if ( 1 == pMac->lim.gLimTDLSOffChannelEnabled &&
+         ( pMac->roam.configParam.bandCapability != eCSR_BAND_24))
+    {
+        tdlsSetupCnf.HT2040BSSCoexistence.present = 1;
+        tdlsSetupCnf.HT2040BSSCoexistence.infoRequest = 1;
     }
 
     /* 
@@ -4309,6 +4350,9 @@ static tpDphHashNode limTdlsDelSta(tpAniSirGlobal pMac, tSirMacAddr peerMac,
                    ("limTdlsDelSta: STA type = %x, sta idx = %x"),pStaDs->staType,
                                                            pStaDs->staIndex) ;
  
+        limDeleteBASessions(pMac, psessionEntry, BA_BOTH_DIRECTIONS,
+                            eSIR_MAC_PEER_TIMEDOUT_REASON);
+
         status = limDelSta(pMac, pStaDs, false, psessionEntry) ;
 #ifdef FEATURE_WLAN_TDLS_INTERNAL
         if(eSIR_SUCCESS == status)
@@ -5646,8 +5690,15 @@ tSirRetStatus limProcesSmeTdlsLinkEstablishReq(tpAniSirGlobal pMac,
     pMsgTdlsLinkEstablishReq->isBufsta = pTdlsLinkEstablishReq->isBufSta;
     pMsgTdlsLinkEstablishReq->isOffChannelSupported =
                                 pTdlsLinkEstablishReq->isOffChannelSupported;
-    pMsgTdlsLinkEstablishReq->isOffChannelSupported = 1;
-
+    if (psessionEntry->tdlsChanSwitProhibited)
+    {
+        pMsgTdlsLinkEstablishReq->isOffChannelSupported = 3;
+        limLog(pMac, LOG1, FL("Channel Switch Prohibited by AP"));
+    }
+    else
+    {
+        pMsgTdlsLinkEstablishReq->isOffChannelSupported = 1;
+    }
     if ((pTdlsLinkEstablishReq->supportedChannelsLen > 0) &&
         (pTdlsLinkEstablishReq->supportedChannelsLen <= SIR_MAC_MAX_SUPP_CHANNELS))
     {
@@ -5982,6 +6033,7 @@ tSirRetStatus limProcesSmeTdlsChanSwitchReq(tpAniSirGlobal pMac,
 
         VOS_TRACE(VOS_MODULE_ID_PE, VOS_TRACE_LEVEL_ERROR,
                                    "Invalid Operating class 0 !!!");
+        vos_mem_free(pMsgTdlsChanSwitch);
         goto lim_tdls_chan_switch_error;
     }
     else
@@ -6004,6 +6056,7 @@ tSirRetStatus limProcesSmeTdlsChanSwitchReq(tpAniSirGlobal pMac,
     if(eSIR_SUCCESS != wdaPostCtrlMsg(pMac, &msg))
     {
         limLog(pMac, LOGE, FL("halPostMsgApi failed\n"));
+        vos_mem_free(pMsgTdlsChanSwitch);
         goto lim_tdls_chan_switch_error;
     }
 

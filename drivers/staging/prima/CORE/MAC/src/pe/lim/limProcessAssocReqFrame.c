@@ -206,20 +206,41 @@ limProcessAssocReqFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,
     pHdr = WDA_GET_RX_MAC_HEADER(pRxPacketInfo);
     framelen = WDA_GET_RX_PAYLOAD_LEN(pRxPacketInfo);
 
-   limLog(pMac, LOG1, FL("Received %s Req Frame on sessionid: %d systemrole %d"
+    limLog(pMac, LOG1, FL("Received %s Req Frame on sessionid: %d systemrole %d"
           " limMlmState %d from: "MAC_ADDRESS_STR),
           (LIM_ASSOC == subType) ? "Assoc" : "ReAssoc",
           psessionEntry->peSessionId, psessionEntry->limSystemRole,
           psessionEntry->limMlmState, MAC_ADDR_ARRAY(pHdr->sa));
 
-   if (psessionEntry->limSystemRole == eLIM_STA_ROLE || psessionEntry->limSystemRole == eLIM_BT_AMP_STA_ROLE )
-   {
+    if (psessionEntry->limSystemRole == eLIM_STA_ROLE || psessionEntry->limSystemRole == eLIM_BT_AMP_STA_ROLE )
+    {
         limLog(pMac, LOGE, FL("received unexpected ASSOC REQ on sessionid: %d "
               "sys subType=%d for role=%d from: "MAC_ADDRESS_STR),
               psessionEntry->peSessionId,
               subType, psessionEntry->limSystemRole, MAC_ADDR_ARRAY(pHdr->sa));
         sirDumpBuf(pMac, SIR_LIM_MODULE_ID, LOG3,
         WDA_GET_RX_MPDU_DATA(pRxPacketInfo), framelen);
+        return;
+    }
+
+    /*
+     * If a STA is already present in DPH and it
+     * is initiating a Assoc re-transmit, do not
+     * process it. This can happen when first Assoc Req frame
+     * is received but ACK lost at STA side. The ACK for this
+     * dropped Assoc Req frame should be sent by HW. Host simply
+     * does not process it once the entry for the STA is already
+     * present in DPH.
+     */
+    pStaDs = dphLookupHashEntry(pMac, pHdr->sa, &peerIdx,
+                             &psessionEntry->dph.dphHashTable);
+    if ((NULL != pStaDs) && (pHdr->fc.retry > 0))
+    {
+        limLog(pMac, LOGE,
+            FL("STA is initiating Assoc Req after ACK lost.So, do not Process"
+             "sessionid: %d sys subType=%d for role=%d from: "MAC_ADDRESS_STR),
+                psessionEntry->peSessionId, subType,
+                 psessionEntry->limSystemRole, MAC_ADDR_ARRAY(pHdr->sa));
         return;
     }
 
@@ -835,14 +856,14 @@ limProcessAssocReqFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,
                 pMac->lim.gLimNumAssocReqDropInvldState++;
 #endif
                 limLog(pMac, LOG1, FL("received Assoc req in state "
-                   "%X from "), pStaDs->mlmStaContext.mlmState);
+                   "%d from "), pStaDs->mlmStaContext.mlmState);
             }
             else
             {     
 #ifdef WLAN_DEBUG    
                 pMac->lim.gLimNumReassocReqDropInvldState++;
 #endif
-                limLog(pMac, LOG1, FL("received ReAssoc req in state %X"
+                limLog(pMac, LOG1, FL("received ReAssoc req in state %d"
                             " from "), pStaDs->mlmStaContext.mlmState);
             }
             limPrintMacAddr(pMac, pHdr->sa, LOG1);
@@ -912,7 +933,7 @@ limProcessAssocReqFrame(tpAniSirGlobal pMac, tANI_U8 *pRxPacketInfo,
                                           sizeof(tSirMacCapabilityInfo)))&&
                                          (subType == LIM_ASSOC))
         {
-            limLog(pMac, LOGE, FL(" Received Assoc req in state %X STAid=%d"),
+            limLog(pMac, LOGE, FL(" Received Assoc req in state %d STAid=%d"),
                                        pStaDs->mlmStaContext.mlmState,peerIdx);
             goto error;
         }
@@ -1220,23 +1241,15 @@ if (limPopulateMatchingRateSet(pMac,
                  * Received Re/Association Request from
                  * STA when UPASD is not supported.
                  */
-                limLog( pMac, LOGE, FL( "AP do not support UPASD "
-                                      "REASSOC Failed" ));
-                /* During wlan fuzz tests for softAP when mal-formed assoc req is
-                 * sent to AP due to delSTA is not done in firmnware UMAC is
-                 * stuck in some bad state.if we set this flag delsta will happen
-                 * and UMAC will recover*/
-                if (updateContext)
-                {
-                    pStaDs->mlmStaContext.updateContext = 1;
-                }
-                limRejectAssociation(pMac, pHdr->sa,
-                                     subType, true, authType, peerIdx, true,
-                                     (tSirResultCodes) eSIR_MAC_WME_REFUSED_STATUS, psessionEntry);
+               limLog( pMac, LOGE, FL( "AP do not support UAPSD so reply "
+                                       "to STA accordingly" ));
+               /* update UAPSD and send it to LIM to add STA */
+               pStaDs->qos.capability.qosInfo.acbe_uapsd = 0;
+               pStaDs->qos.capability.qosInfo.acbk_uapsd = 0;
+               pStaDs->qos.capability.qosInfo.acvo_uapsd = 0;
+               pStaDs->qos.capability.qosInfo.acvi_uapsd = 0;
+               pStaDs->qos.capability.qosInfo.maxSpLen =   0;
 
-
-                pAssocReq = psessionEntry->parsedAssocReq[pStaDs->assocId];
-                goto error;
             }
             else
             {

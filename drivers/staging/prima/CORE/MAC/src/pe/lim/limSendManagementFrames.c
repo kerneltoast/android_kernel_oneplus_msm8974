@@ -152,7 +152,7 @@ void limUpdateExtCapIEtoStruct(tpAniSirGlobal pMac,
     if ( DOT11F_EID_EXTCAP != pBuf[0] ||
          pBuf[1] > DOT11F_IE_EXTCAP_MAX_LEN )
     {
-        limLog( pMac, LOGE,
+        limLog( pMac, LOG1,
                FL("Invalid IEs eid = %d elem_len=%d "),
                                                pBuf[0],pBuf[1]);
         return;
@@ -1350,6 +1350,9 @@ limSendAssocRspMgmtFrame(tpAniSirGlobal pMac,
     tANI_U32             addnIELen=0;
     tANI_U8              addIE[WNI_CFG_ASSOC_RSP_ADDNIE_DATA_LEN];
     tpSirAssocReq        pAssocReq = NULL; 
+    tANI_U16             addStripoffIELen = 0;
+    tDot11fIEExtCap      extractedExtCap;
+    tANI_BOOLEAN         extractedExtCapFlag = eANI_BOOLEAN_FALSE;
     tANI_U32             nBytes = 0;
 
 #ifdef WLAN_FEATURE_11W
@@ -1544,10 +1547,34 @@ limSendAssocRspMgmtFrame(tpAniSirGlobal pMac,
                 if (wlan_cfgGetStr(pMac, WNI_CFG_ASSOC_RSP_ADDNIE_DATA,
                             &addIE[0], &addnIELen) == eSIR_SUCCESS)
                 {
+
+                    vos_mem_set(( tANI_U8* )&extractedExtCap,
+                        sizeof( tDot11fIEExtCap ), 0);
+                    addStripoffIELen = addnIELen;
+                    nSirStatus = limStripOffExtCapIEAndUpdateStruct(pMac,
+                                      &addIE[0],
+                                      &addStripoffIELen,
+                                      &extractedExtCap );
+                    if(eSIR_SUCCESS != nSirStatus)
+                    {
+                        limLog(pMac, LOG1,
+                            FL("Unable to Stripoff ExtCap IE from Assoc Rsp"));
+                    }
+                    else
+                    {
+                        addnIELen = addStripoffIELen;
+                        extractedExtCapFlag = eANI_BOOLEAN_TRUE;
+                    }
                     nBytes = nBytes + addnIELen;
                 }
             }
         }
+    }
+
+    /* merge the ExtCap struct*/
+    if (extractedExtCapFlag && extractedExtCap.present)
+    {
+        limMergeExtCapIEStruct(&(frm.ExtCap), &extractedExtCap);
     }
 
     nStatus = dot11fGetPackedAssocResponseSize( pMac, &frm, &nPayload );
@@ -2530,7 +2557,8 @@ limSendAssocReqMgmtFrame(tpAniSirGlobal   pMac,
         txFlag |= HAL_USE_BD_RATE2_FOR_MANAGEMENT_FRAME;
     }
 
-    if(psessionEntry->pePersona == VOS_P2P_CLIENT_MODE)
+    if(psessionEntry->pePersona == VOS_P2P_CLIENT_MODE ||
+       psessionEntry->pePersona == VOS_STA_MODE)
     {
         txFlag |= HAL_USE_PEER_STA_REQUESTED_MASK;
     }
@@ -3353,7 +3381,8 @@ limSendReassocReqMgmtFrame(tpAniSirGlobal     pMac,
         txFlag |= HAL_USE_BD_RATE2_FOR_MANAGEMENT_FRAME;
     }
 
-    if(psessionEntry->pePersona == VOS_P2P_CLIENT_MODE)
+    if(psessionEntry->pePersona == VOS_P2P_CLIENT_MODE ||
+       psessionEntry->pePersona == VOS_STA_MODE)
     {
         txFlag |= HAL_USE_PEER_STA_REQUESTED_MASK;
     }
@@ -3681,7 +3710,8 @@ limSendAuthMgmtFrame(tpAniSirGlobal pMac,
         txFlag |= HAL_USE_BD_RATE2_FOR_MANAGEMENT_FRAME;
     }
 
-    if(psessionEntry->pePersona == VOS_P2P_CLIENT_MODE)
+    if(psessionEntry->pePersona == VOS_P2P_CLIENT_MODE ||
+       psessionEntry->pePersona == VOS_STA_MODE)
     {
         txFlag |= HAL_USE_PEER_STA_REQUESTED_MASK;
     }
@@ -3748,33 +3778,14 @@ eHalStatus limSendDeauthCnf(tpAniSirGlobal pMac)
             goto end;
         }
 
-
         /// Receive path cleanup with dummy packet
         limCleanupRxPath(pMac, pStaDs,psessionEntry);
 
 #ifdef WLAN_FEATURE_VOWIFI_11R
-        if  ( (psessionEntry->limSystemRole == eLIM_STA_ROLE ) &&
-                (
-#ifdef FEATURE_WLAN_ESE
-                 (psessionEntry->isESEconnection ) ||
-#endif
-#ifdef FEATURE_WLAN_LFR
-                 (psessionEntry->isFastRoamIniFeatureEnabled ) ||
-#endif
-                 (psessionEntry->is11Rconnection )))
+        if  ( psessionEntry->limSystemRole == eLIM_STA_ROLE )
         {
-            PELOGE(limLog(pMac, LOGE,
-                   FL("FT Preauth Session (%p,%d) Cleanup"
-                      " Deauth reason %d Trigger = %d"),
-                   psessionEntry, psessionEntry->peSessionId,
-                   pMlmDeauthReq->reasonCode,
-                   pMlmDeauthReq->deauthTrigger););
-            limFTCleanup(pMac);
-        }
-        else
-        {
-            PELOGE(limLog(pMac, LOGE,
-                   FL("No FT Preauth Session Cleanup in role %d"
+            PELOGE(limLog(pMac, LOG1,
+                   FL("FT Preauth SessionId %d Cleanup"
 #ifdef FEATURE_WLAN_ESE
                    " isESE %d"
 #endif
@@ -3782,7 +3793,7 @@ eHalStatus limSendDeauthCnf(tpAniSirGlobal pMac)
                    " isLFR %d"
 #endif
                    " is11r %d, Deauth reason %d Trigger = %d"),
-                   psessionEntry->limSystemRole,
+                   psessionEntry->peSessionId,
 #ifdef FEATURE_WLAN_ESE
                    psessionEntry->isESEconnection,
 #endif
@@ -3792,6 +3803,8 @@ eHalStatus limSendDeauthCnf(tpAniSirGlobal pMac)
                    psessionEntry->is11Rconnection,
                    pMlmDeauthReq->reasonCode,
                    pMlmDeauthReq->deauthTrigger););
+
+            limFTCleanup(pMac);
         }
 #endif
 
@@ -3859,26 +3872,11 @@ eHalStatus limSendDisassocCnf(tpAniSirGlobal pMac)
 
 #ifdef WLAN_FEATURE_VOWIFI_11R
         if  ( (psessionEntry->limSystemRole == eLIM_STA_ROLE ) && 
-                (
-#ifdef FEATURE_WLAN_ESE
-                 (psessionEntry->isESEconnection ) ||
-#endif
-#ifdef FEATURE_WLAN_LFR
-                 (psessionEntry->isFastRoamIniFeatureEnabled ) ||
-#endif
-                 (psessionEntry->is11Rconnection )) &&
                 (pMlmDisassocReq->reasonCode !=
                  eSIR_MAC_DISASSOC_DUE_TO_FTHANDOFF_REASON))
         {
-            PELOGE(limLog(pMac, LOGE,
-                   FL("FT Preauth Session (%p,%d) Cleanup"),
-                   psessionEntry, psessionEntry->peSessionId););
-            limFTCleanup(pMac);
-        }
-        else 
-        {
-            PELOGE(limLog(pMac, LOGE, 
-                   FL("No FT Preauth Session Cleanup in role %d"
+            PELOGE(limLog(pMac, LOG1,
+                   FL("FT Preauth SessionId %d Cleanup"
 #ifdef FEATURE_WLAN_ESE
                    " isESE %d"
 #endif
@@ -3886,7 +3884,7 @@ eHalStatus limSendDisassocCnf(tpAniSirGlobal pMac)
                    " isLFR %d"
 #endif
                    " is11r %d reason %d"),
-                   psessionEntry->limSystemRole, 
+                   psessionEntry->peSessionId,
 #ifdef FEATURE_WLAN_ESE
                    psessionEntry->isESEconnection,
 #endif
@@ -3895,6 +3893,7 @@ eHalStatus limSendDisassocCnf(tpAniSirGlobal pMac)
 #endif
                    psessionEntry->is11Rconnection,
                    pMlmDisassocReq->reasonCode););
+            limFTCleanup(pMac);
         }
 #endif
 
@@ -4064,12 +4063,7 @@ limSendDisassocMgmtFrame(tpAniSirGlobal pMac,
         txFlag |= HAL_USE_BD_RATE2_FOR_MANAGEMENT_FRAME;
     }
 
-    if((psessionEntry->pePersona == VOS_P2P_CLIENT_MODE) ||
-       (psessionEntry->pePersona == VOS_P2P_GO_MODE) ||
-       (psessionEntry->pePersona == VOS_STA_SAP_MODE))
-    {
-        txFlag |= HAL_USE_PEER_STA_REQUESTED_MASK;
-    }
+    txFlag |= HAL_USE_PEER_STA_REQUESTED_MASK;
 
     if( IS_FW_IN_TX_PATH_FEATURE_ENABLE )
     {
@@ -4272,12 +4266,7 @@ limSendDeauthMgmtFrame(tpAniSirGlobal pMac,
         txFlag |= HAL_USE_BD_RATE2_FOR_MANAGEMENT_FRAME;
     }
 
-    if((psessionEntry->pePersona == VOS_P2P_CLIENT_MODE) ||
-       (psessionEntry->pePersona == VOS_P2P_GO_MODE) ||
-       (psessionEntry->pePersona == VOS_STA_SAP_MODE))
-    {
-        txFlag |= HAL_USE_PEER_STA_REQUESTED_MASK;
-    }
+    txFlag |= HAL_USE_PEER_STA_REQUESTED_MASK;
 
     if( IS_FW_IN_TX_PATH_FEATURE_ENABLE )
     {

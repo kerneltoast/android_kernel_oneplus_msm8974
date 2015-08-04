@@ -432,7 +432,7 @@ VosMCThread
         {
            VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
                "%s: pMsgWrapper is NULL", __func__);
-           VOS_ASSERT(0);
+           VOS_BUG(0);
            break;
         }
 
@@ -442,7 +442,7 @@ VosMCThread
         {
            VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
                "%s: WDI Msg or Callback is NULL", __func__);
-           VOS_ASSERT(0);
+           VOS_BUG(0);
            break;
         }
 
@@ -623,20 +623,6 @@ VosMCThread
       "%s: MC Thread exiting!!!!", __func__);
   complete_and_exit(&pSchedContext->McShutdown, 0);
 } /* VosMCThread() */
-
-v_BOOL_t isWDresetInProgress(void)
-{
-   VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_INFO,
-                "%s: Reset is in Progress...",__func__);
-   if(gpVosWatchdogContext!=NULL)
-   {
-      return gpVosWatchdogContext->resetInProgress;
-   }
-   else
-   {
-      return FALSE;
-   }
-}
 
 v_BOOL_t isSsrPanicOnFailure(void)
 {
@@ -997,7 +983,7 @@ static int VosTXThread ( void * Arg )
         {
            VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
                "%s: pMsgWrapper is NULL", __func__);
-           VOS_ASSERT(0);
+           VOS_BUG(0);
            break;
         }
 
@@ -1007,7 +993,7 @@ static int VosTXThread ( void * Arg )
         {
            VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
                "%s: WDI Msg or Callback is NULL", __func__);
-           VOS_ASSERT(0);
+           VOS_BUG(0);
            break;
         }
         
@@ -1196,7 +1182,7 @@ static int VosRXThread ( void * Arg )
         {
           VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
                     "%s: wdiRxMq message is NULL", __func__);
-          VOS_ASSERT(0);
+          VOS_BUG(0);
           // we won't return this wrapper since it is corrupt
         }
         else
@@ -1206,7 +1192,7 @@ static int VosRXThread ( void * Arg )
           {
             VOS_TRACE(VOS_MODULE_ID_VOSS, VOS_TRACE_LEVEL_ERROR,
                       "%s: WDI Msg or callback is NULL", __func__);
-            VOS_ASSERT(0);
+            VOS_BUG(0);
           }
           else
           {
@@ -1324,11 +1310,6 @@ VOS_STATUS vos_watchdog_close ( v_PVOID_t pVosContext )
     wait_for_completion(&gpVosWatchdogContext->WdShutdown);
     return VOS_STATUS_SUCCESS;
 } /* vos_watchdog_close() */
-
-VOS_STATUS vos_watchdog_chip_reset ( vos_chip_reset_reason_type  reason )
-{
-    return VOS_STATUS_SUCCESS;
-} /* vos_watchdog_chip_reset() */
 
 /*---------------------------------------------------------------------------
   \brief vos_sched_init_mqs: Initialize the vOSS Scheduler message queues

@@ -228,6 +228,7 @@ typedef struct
   v_U32_t                         min_phy_rate;
   v_U16_t                         surplus_bw_allowance;
   v_U16_t                         medium_time;
+  v_U8_t                          expec_psb_byapp;
 } sme_QosWmmTspecInfo;
 
 
@@ -365,6 +366,21 @@ sme_QosStatusType sme_QosReleaseReq(tHalHandle hHal, v_U32_t QosFlowID);
 v_BOOL_t sme_QosIsTSInfoAckPolicyValid(tpAniSirGlobal pMac,
     sme_QosWmmTspecInfo * pQoSInfo,
     v_U8_t sessionId);
+
+/*--------------------------------------------------------------------------
+  \brief sme_QosTspecActive() - The SME QoS API exposed to HDD to
+  check no of active Tspecs
+
+  \param pMac - The handle returned by macOpen.
+  \param ac - Determines type of Access Category
+  \param sessionId - sessionId returned by sme_OpenSession.
+
+  \return VOS_TRUE -When there is no error with pSession
+
+  \sa
+  --------------------------------------------------------------------------*/
+v_BOOL_t sme_QosTspecActive(tpAniSirGlobal pMac,
+    WLANTL_ACEnumType ac, v_U8_t sessionId, v_U8_t *pActiveTspec);
 
 
 /*--------------------------------------------------------------------------
