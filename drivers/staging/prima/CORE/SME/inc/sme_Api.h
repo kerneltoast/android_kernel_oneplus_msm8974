@@ -2271,12 +2271,11 @@ tANI_U8 sme_GetConcurrentOperationChannel( tHalHandle hHal );
     \brief  API to cancel MAC scan.
     \param  hHal - The handle returned by macOpen.
     \param  sessionId - sessionId for interface
-    \return VOS_STATUS
-            VOS_STATUS_E_FAILURE - failure
-            VOS_STATUS_SUCCESS  success
+    \return tSirAbortScanStatus return status abort scan
+
   ---------------------------------------------------------------------------*/
-eHalStatus sme_AbortMacScan(tHalHandle hHal, tANI_U8 sessionId,
-                            eCsrAbortReason reason);
+tSirAbortScanStatus sme_AbortMacScan(tHalHandle hHal, tANI_U8 sessionId,
+                                     eCsrAbortReason reason);
 
 /* ---------------------------------------------------------------------------
     \fn sme_GetCfgValidChannels
@@ -3485,6 +3484,17 @@ eHalStatus sme_Encryptmsgsend (tHalHandle hHal,
                                int length,
                                pEncryptMsgRSPCb encCB);
 
+/* --------------------------------------------------------------------------
+
+    \fn sme_IsCoexScoIndicationSet
+    \brief To check if the BTC module in fwr has sent the SCO
+           indication to host or not
+
+    \param hHal - The handle returned by macOpen.
+    \return TRUE - Sco call in progress FALSE- No SCO call in progress
+
+  --------------------------------------------------------------------------*/
+tANI_BOOLEAN sme_IsCoexScoIndicationSet(tHalHandle hHal);
 
 eHalStatus sme_SetMiracastVendorConfig(tHalHandle hHal,
                                tANI_U32 iniNumBuffAdvert,

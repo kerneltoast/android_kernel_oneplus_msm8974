@@ -402,8 +402,7 @@ tSmeCmd *smeGetCommandBuffer( tpAniSirGlobal pMac )
         /* reset when free list is available */
             smeCommandQueueFull = 0;
     }
-    else
-    {
+    else {
         int idx = 1;
 
         //Cannot change pRetCmd here since it needs to return later.
@@ -441,33 +440,22 @@ tSmeCmd *smeGetCommandBuffer( tpAniSirGlobal pMac )
             }
             pEntry = csrLLNext( &pMac->sme.smeCmdPendingList, pEntry, LL_ACCESS_NOLOCK );
         }
+        /* Increament static variable so that it prints pending command only once*/
+        smeCommandQueueFull++;
         csrLLUnlock(&pMac->sme.smeCmdPendingList);
 
-        idx = 1;
         //There may be some more command in CSR's own pending queue
         csrLLLock(&pMac->roam.roamCmdPendingList);
         pEntry = csrLLPeekHead( &pMac->roam.roamCmdPendingList, LL_ACCESS_NOLOCK );
-        while(pEntry && !smeCommandQueueFull)
+        while(pEntry)
         {
             pTempCmd = GET_BASE_ADDR( pEntry, tSmeCmd, Link );
-            /* Print only 1st five commands from CSR pending queue */
-            if (idx <= 5)
-                smsLog( pMac, LOGE,
-                       "Out of command buffer...CSR pending command #%d (0x%X)",
-                        idx, pTempCmd->command );
-            idx++;
+            smsLog( pMac, LOGE, "Out of command buffer.... CSR pending command #%d (0x%X)",
+                    idx++, pTempCmd->command );
             dumpCsrCommandInfo(pMac, pTempCmd);
             pEntry = csrLLNext( &pMac->roam.roamCmdPendingList, pEntry, LL_ACCESS_NOLOCK );
         }
-        /*
-         * Increament static variable so that it prints pending command
-         * only once
-         */
-        smeCommandQueueFull++;
         csrLLUnlock(&pMac->roam.roamCmdPendingList);
-
-       /* panic with out-of-command */
-        VOS_BUG(0);
     }
 
     if( pRetCmd )
@@ -830,9 +818,6 @@ sme_process_cmd:
                     {
                         //Force this command to wake up the chip
                         csrLLInsertHead( &pMac->sme.smeCmdActiveList, &pPmcCmd->Link, LL_ACCESS_NOLOCK );
-                        MTRACE(vos_trace(VOS_MODULE_ID_SME,
-                               TRACE_CODE_SME_COMMAND,pPmcCmd->sessionId,
-                               pPmcCmd->command));
                         csrLLUnlock( &pMac->sme.smeCmdActiveList );
                         fContinue = pmcProcessCommand( pMac, pPmcCmd );
                         if( fContinue )
@@ -6843,13 +6828,12 @@ eHalStatus sme_SetPowerParams(tHalHandle hHal, tSirSetPowerParamsReq* pwParams, 
     \param  hHal - The handle returned by macOpen.
     \param  sessionId - sessionId on which we need to abort scan.
     \param  reason - Reason to abort the scan.
-    \return VOS_STATUS
-            VOS_STATUS_E_FAILURE - failure
-            VOS_STATUS_SUCCESS  success
+    \return tSirAbortScanStatus Abort scan status
   ---------------------------------------------------------------------------*/
-eHalStatus sme_AbortMacScan(tHalHandle hHal, tANI_U8 sessionId,
-                            eCsrAbortReason reason)
+tSirAbortScanStatus sme_AbortMacScan(tHalHandle hHal, tANI_U8 sessionId,
+                                        eCsrAbortReason reason)
 {
+    tSirAbortScanStatus scanAbortStatus = eSIR_ABORT_SCAN_FAILURE;
     eHalStatus status;
     tpAniSirGlobal pMac = PMAC_STRUCT( hHal );
 
@@ -6858,12 +6842,12 @@ eHalStatus sme_AbortMacScan(tHalHandle hHal, tANI_U8 sessionId,
     status = sme_AcquireGlobalLock( &pMac->sme );
     if ( HAL_STATUS_SUCCESS( status ) )
     {
-       status = csrScanAbortMacScan(pMac, sessionId, reason);
+       scanAbortStatus = csrScanAbortMacScan(pMac, sessionId, reason);
 
        sme_ReleaseGlobalLock( &pMac->sme );
     }
 
-    return ( status );
+    return ( scanAbortStatus );
 }
 
 /* ----------------------------------------------------------------------------
@@ -11793,6 +11777,20 @@ eHalStatus sme_Encryptmsgsend (tHalHandle hHal,
         sme_ReleaseGlobalLock(&pMac->sme);
     }
     return(status);
+}
+tANI_BOOLEAN sme_IsCoexScoIndicationSet(tHalHandle hHal)
+{
+   eHalStatus status = eHAL_STATUS_FAILURE;
+   tANI_BOOLEAN valid = FALSE;
+   tpAniSirGlobal pMac = PMAC_STRUCT( hHal );
+
+   status = sme_AcquireGlobalLock( &pMac->sme );
+   if ( HAL_STATUS_SUCCESS( status ) )
+   {
+      valid = pMac->isCoexScoIndSet;
+   }
+   sme_ReleaseGlobalLock( &pMac->sme );
+   return (valid);
 }
 
 eHalStatus sme_SetMiracastVendorConfig(tHalHandle hHal,
