@@ -2391,17 +2391,19 @@ static int fb_notifier_callback(struct notifier_block *nb,
 
 	switch (*blank) {
 	case FB_BLANK_UNBLANK:
+	case FB_BLANK_VSYNC_SUSPEND:
 		if (!atomic_read(&rmi4_data->ts_awake)) {
+			cancel_work_sync(&rmi4_data->syna_pm_work);
 			atomic_set(&rmi4_data->resume_suspend, 1);
 			queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
 		}
 		break;
-	case FB_BLANK_POWERDOWN:
+	default:
 		if (atomic_read(&rmi4_data->ts_awake)) {
+			cancel_work_sync(&rmi4_data->syna_pm_work);
 			atomic_set(&rmi4_data->resume_suspend, 0);
 			queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
 		}
-		break;
 	}
 
 	rmi4_data->old_status = *blank;
@@ -2554,7 +2556,7 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 			&exp_data.work,
 			msecs_to_jiffies(200));
 
-	rmi4_data->syna_pm_wq = alloc_workqueue("synaptics_pm_wq", WQ_HIGHPRI, 1);
+	rmi4_data->syna_pm_wq = alloc_workqueue("synaptics_pm_wq", WQ_HIGHPRI, 0);
 	INIT_WORK(&rmi4_data->syna_pm_work, synaptics_rmi4_pm_main);
 
 	rmi4_fw_module_init(true);
