@@ -36,28 +36,25 @@ static struct workqueue_struct *boost_wq;
 static struct work_struct boost_work;
 
 static bool boost_running;
-static bool freqs_available __read_mostly;
-static unsigned int boost_freq[3] __read_mostly;
-static unsigned int boost_ms[3];
-static unsigned int enabled __read_mostly;
-static unsigned int user_minfreq;
+static bool freqs_available;
+static unsigned int boost_freq[4];
+static unsigned int boost_ms[4];
+static unsigned int enabled;
 
-static void cpu_boost(unsigned int nr_cpus)
+static void cpu_boost_cpu(unsigned int cpu)
 {
-	struct boost_policy *b;
-	unsigned int cpu;
+	struct boost_policy *b = &per_cpu(boost_info, cpu);
 
-	for_each_online_cpu(cpu) {
-		b = &per_cpu(boost_info, cpu);
-		b->boost_state = BOOST;
-		cpufreq_update_policy(cpu);
-		if (cpu == (nr_cpus - 1))
-			return;
-	}
+	b->boost_state = BOOST;
+	cpufreq_update_policy(cpu);
+	queue_delayed_work(boost_wq, &b->restore_work,
+				msecs_to_jiffies(boost_ms[cpu]));
 }
 
-static void cpu_unboost(struct boost_policy *b)
+static void cpu_unboost_cpu(unsigned int cpu)
 {
+	struct boost_policy *b = &per_cpu(boost_info, cpu);
+
 	b->boost_state = UNBOOST;
 	get_online_cpus();
 	if (cpu_online(b->cpu))
@@ -65,35 +62,47 @@ static void cpu_unboost(struct boost_policy *b)
 	put_online_cpus();
 }
 
-static void __cpuinit cpu_boost_main(struct work_struct *work)
+static void cpu_unboost_all(void)
 {
 	struct boost_policy *b;
-	unsigned int cpu, num_cpus_to_boost;
+	unsigned int cpu;
 
 	get_online_cpus();
-	num_cpus_to_boost = num_online_cpus() - 1;
-	if (!num_cpus_to_boost)
-		num_cpus_to_boost = 1;
-
-	/* Calculate boost duration for each CPU (CPU0 is boosted the longest) */
-	for (cpu = 0; cpu < num_cpus_to_boost; cpu++)
-		boost_ms[cpu] = 1650 - (cpu * 300) - (num_cpus_to_boost * 300);
-
-	cpu_boost(num_cpus_to_boost);
+	for_each_possible_cpu(cpu) {
+		b = &per_cpu(boost_info, cpu);
+		b->boost_state = UNBOOST;
+		if (cpu_online(cpu))
+			cpufreq_update_policy(cpu);
+	}
 	put_online_cpus();
 
-	for (cpu = 0; cpu < num_cpus_to_boost; cpu++) {
-		b = &per_cpu(boost_info, cpu);
-		queue_delayed_work_on(0, boost_wq, &b->restore_work,
-					msecs_to_jiffies(boost_ms[cpu]));
+	boost_running = false;
+}
+
+static void __cpuinit cpu_boost_main(struct work_struct *work)
+{
+	unsigned int cpu, nr_cpus_to_boost, nr_boosted = 0;
+
+	get_online_cpus();
+	/* Max. of 3 CPUs can be boosted at any given time */
+	nr_cpus_to_boost = num_online_cpus() > 2 ? num_online_cpus() - 1 : 1;
+
+	for_each_online_cpu(cpu) {
+		/* Calculate boost duration for each CPU (CPU0 is boosted the longest) */
+		boost_ms[cpu] = 1650 - (cpu * 200) - (nr_cpus_to_boost * 250);
+		cpu_boost_cpu(cpu);
+		nr_boosted++;
+		if (nr_boosted == nr_cpus_to_boost)
+			break;
 	}
+	put_online_cpus();
 }
 
 static void __cpuinit cpu_restore_main(struct work_struct *work)
 {
 	struct boost_policy *b = container_of(work, struct boost_policy,
 							restore_work.work);
-	cpu_unboost(b);
+	cpu_unboost_cpu(b->cpu);
 
 	if (!b->cpu)
 		boost_running = false;
@@ -107,16 +116,8 @@ static int cpu_do_boost(struct notifier_block *nb, unsigned long val, void *data
 	if (val != CPUFREQ_ADJUST)
 		return NOTIFY_OK;
 
-	if (policy->cpu > 2)
-		return NOTIFY_OK;
-
 	if (!freqs_available)
 		return NOTIFY_OK;
-
-	if (user_minfreq) {
-		policy->min = user_minfreq;
-		return NOTIFY_OK;
-	}
 
 	switch (b->boost_state) {
 	case UNBOOST:
@@ -138,11 +139,11 @@ static void cpu_iboost_input_event(struct input_handle *handle, unsigned int typ
 		unsigned int code, int value)
 {
 	if (boost_running || !enabled ||
-		!freqs_available || user_minfreq)
+		!freqs_available)
 		return;
 
 	boost_running = true;
-	queue_work_on(0, boost_wq, &boost_work);
+	queue_work(boost_wq, &boost_work);
 }
 
 static int cpu_iboost_input_connect(struct input_handler *handler,
@@ -230,6 +231,9 @@ static ssize_t boost_freqs_write(struct device *dev,
 	boost_freq[0] = max3(freq[0], freq[1], freq[2]);
 	boost_freq[2] = min3(freq[0], freq[1], freq[2]);
 
+	/* Use the same freq for CPU2 and CPU3 */
+	boost_freq[3] = boost_freq[2];
+
 	while (++i) {
 		if ((freq[i] == boost_freq[0]) ||
 			(freq[i] == boost_freq[2])) {
@@ -257,25 +261,9 @@ static ssize_t enabled_write(struct device *dev,
 
 	enabled = data;
 
-	return size;
-}
-
-static ssize_t userspace_minfreq_write(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t size)
-{
-	struct boost_policy *b;
-	unsigned int data, cpu;
-	int ret = sscanf(buf, "%u", &data);
-
-	if (ret != 1)
-		return -EINVAL;
-
-	user_minfreq = data;
-
-	for (cpu = 0; cpu < 3; cpu++) {
-		b = &per_cpu(boost_info, cpu);
-		cancel_delayed_work_sync(&b->restore_work);
-		queue_delayed_work_on(0, boost_wq, &b->restore_work, 0);
+	if (!data) {
+		cancel_work_sync(&boost_work);
+		cpu_unboost_all();
 	}
 
 	return size;
@@ -294,23 +282,12 @@ static ssize_t enabled_read(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%u\n", enabled);
 }
 
-static ssize_t userspace_minfreq_read(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	return snprintf(buf, PAGE_SIZE, "%u\n", user_minfreq);
-}
-
-static DEVICE_ATTR(boost_freqs, S_IRUGO | S_IWUGO,
-			boost_freqs_read, boost_freqs_write);
-static DEVICE_ATTR(enabled, S_IRUGO | S_IWUGO,
-			enabled_read, enabled_write);
-static DEVICE_ATTR(userspace_minfreq, S_IRUGO | S_IWUGO,
-			userspace_minfreq_read, userspace_minfreq_write);
+static DEVICE_ATTR(boost_freqs, 0644, boost_freqs_read, boost_freqs_write);
+static DEVICE_ATTR(enabled, 0644, enabled_read, enabled_write);
 
 static struct attribute *cpu_iboost_attr[] = {
 	&dev_attr_boost_freqs.attr,
 	&dev_attr_enabled.attr,
-	&dev_attr_userspace_minfreq.attr,
 	NULL
 };
 
@@ -322,7 +299,7 @@ static struct attribute_group cpu_iboost_attr_group = {
 static int __init cpu_iboost_init(void)
 {
 	struct boost_policy *b;
-	int i, ret;
+	int cpu, ret;
 
 	boost_wq = alloc_workqueue("cpu_iboost_wq", WQ_HIGHPRI, 0);
 	if (!boost_wq) {
@@ -333,9 +310,9 @@ static int __init cpu_iboost_init(void)
 
 	cpufreq_register_notifier(&cpu_do_boost_nb, CPUFREQ_POLICY_NOTIFIER);
 
-	for (i = 0; i < (CONFIG_NR_CPUS - 1); i++) {
-		b = &per_cpu(boost_info, i);
-		b->cpu = i;
+	for_each_possible_cpu(cpu) {
+		b = &per_cpu(boost_info, cpu);
+		b->cpu = cpu;
 		INIT_DELAYED_WORK(&b->restore_work, cpu_restore_main);
 	}
 
