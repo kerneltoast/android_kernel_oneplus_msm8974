@@ -15,30 +15,36 @@
 
 #include <linux/cpu.h>
 #include <linux/cpufreq.h>
+#include <linux/fb.h>
 #include <linux/input.h>
 #include <linux/module.h>
 #include <linux/notifier.h>
 #include <linux/slab.h>
 
+#define FB_BOOST_MS 500
+
 enum boost_status {
 	UNBOOST,
+	WAITING,
 	BOOST,
 };
 
 struct boost_policy {
-	enum boost_status boost_state;
 	struct delayed_work restore_work;
+	unsigned int boost_state;
 	unsigned int cpu;
 };
 
 static DEFINE_PER_CPU(struct boost_policy, boost_info);
 static struct workqueue_struct *boost_wq;
+static struct delayed_work boost_override_work;
 static struct work_struct boost_work;
 
 static bool boost_running;
 static bool freqs_available;
 static unsigned int boost_freq[4];
 static unsigned int boost_ms[4];
+static unsigned int boost_override;
 static unsigned int enabled;
 
 static void cpu_boost_cpu(unsigned int cpu)
@@ -108,6 +114,24 @@ static void __cpuinit cpu_restore_main(struct work_struct *work)
 		boost_running = false;
 }
 
+static void __cpuinit boost_override_fn(struct work_struct *work)
+{
+	unsigned int cpu;
+
+	if (boost_override == BOOST) {
+		get_online_cpus();
+		for_each_online_cpu(cpu)
+			cpufreq_update_policy(cpu);
+		put_online_cpus();
+		boost_override = WAITING;
+		queue_delayed_work(boost_wq, &boost_override_work,
+					msecs_to_jiffies(FB_BOOST_MS));
+	} else {
+		cpu_unboost_all();
+		boost_override = UNBOOST;
+	}
+}
+
 static int cpu_do_boost(struct notifier_block *nb, unsigned long val, void *data)
 {
 	struct cpufreq_policy *policy = data;
@@ -116,8 +140,10 @@ static int cpu_do_boost(struct notifier_block *nb, unsigned long val, void *data
 	if (val != CPUFREQ_ADJUST)
 		return NOTIFY_OK;
 
-	if (!freqs_available)
+	if (boost_override == BOOST) {
+		policy->min = policy->max;
 		return NOTIFY_OK;
+	}
 
 	switch (b->boost_state) {
 	case UNBOOST:
@@ -135,11 +161,36 @@ static struct notifier_block cpu_do_boost_nb = {
 	.notifier_call = cpu_do_boost,
 };
 
+static int fb_blank_boost(struct notifier_block *nb, unsigned long val, void *data)
+{
+	struct fb_event *evdata = data;
+	int *blank = evdata->data;
+
+	if (val != FB_EVENT_BLANK)
+		return NOTIFY_OK;
+
+	/* Don't boost during doze */
+	if (*blank == FB_BLANK_VSYNC_SUSPEND)
+		return NOTIFY_OK;
+
+	if (boost_override)
+		return NOTIFY_OK;
+
+	boost_override = BOOST;
+	queue_delayed_work(boost_wq, &boost_override_work, 0);
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block fb_boost_nb = {
+	.notifier_call = fb_blank_boost,
+};
+
 static void cpu_iboost_input_event(struct input_handle *handle, unsigned int type,
 		unsigned int code, int value)
 {
 	if (boost_running || !enabled ||
-		!freqs_available)
+		!freqs_available || boost_override)
 		return;
 
 	boost_running = true;
@@ -309,6 +360,10 @@ static int __init cpu_iboost_init(void)
 	}
 
 	cpufreq_register_notifier(&cpu_do_boost_nb, CPUFREQ_POLICY_NOTIFIER);
+
+	INIT_DELAYED_WORK(&boost_override_work, boost_override_fn);
+
+	fb_register_client(&fb_boost_nb);
 
 	for_each_possible_cpu(cpu) {
 		b = &per_cpu(boost_info, cpu);
