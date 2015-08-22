@@ -167,8 +167,8 @@ static void __cpuinit fb_boost_fn(struct work_struct *work)
 		queue_delayed_work(boost_wq, &fb_boost_work,
 					msecs_to_jiffies(FB_BOOST_MS));
 	} else {
-		cpu_unboost_all();
 		fb_boost = UNBOOST;
+		cpu_unboost_all();
 	}
 }
 
@@ -230,14 +230,12 @@ static int fb_blank_boost(struct notifier_block *nb, unsigned long val, void *da
 		return NOTIFY_OK;
 
 	/* Record suspend state for migration notifier */
-	if (*blank == FB_BLANK_UNBLANK)
-		suspended = false;
-	else
+	if (*blank != FB_BLANK_UNBLANK) {
 		suspended = true;
-
-	/* Don't boost during doze */
-	if (*blank == FB_BLANK_VSYNC_SUSPEND)
+		/* Only boost for unblank */
 		return NOTIFY_OK;
+	} else
+		suspended = false;
 
 	/* Framebuffer boost is already in progress */
 	if (fb_boost)
