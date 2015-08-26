@@ -35,6 +35,10 @@
 int pvs_level = -1;
 module_param(pvs_level, int, S_IRUGO); 
 #endif
+#ifdef CONFIG_SPEED_LEVEL_INTERFACE
+int speed_level = -1;
+module_param(speed_level, int, S_IRUGO);
+#endif
 
 /* Clock inputs coming into Krait subsystem */
 DEFINE_FIXED_DIV_CLK(hfpll_src_clk, 1, NULL);
@@ -466,6 +470,10 @@ static void get_krait_bin_format_b(struct platform_device *pdev,
 		dev_warn(&pdev->dev, "Speed bin not set. Defaulting to 0!\n");
 		*speed = 0;
 	}
+
+#ifdef CONFIG_SPEED_LEVEL_INTERFACE
+        speed_level = *speed;
+#endif
 
 	/* Check PVS_BLOW_STATUS */
 	pte_efuse = readl_relaxed(base + 0x4) & BIT(21);
