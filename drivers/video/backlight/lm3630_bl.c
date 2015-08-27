@@ -58,6 +58,10 @@ static int pre_brightness=0;
 int set_backlight_pwm(int state);
 #endif /*CONFIG_MACH_MSM8974_14001*/
 
+#ifdef CONFIG_STATE_NOTIFIER
+#include <linux/state_notifier.h>
+#endif /*CONFIG_STATE_NOTIFIER*/
+
 static struct lm3630_chip_data *lm3630_pchip;
 
 #ifdef CONFIG_BL_REGISTER
@@ -415,6 +419,17 @@ static void lm3630_backlight_unregister(struct lm3630_chip_data *pchip)
 	int ret;
 	struct lm3630_chip_data *pchip = lm3630_pchip;
 	pr_debug("%s: bl=%d\n", __func__,bl_level);
+
+#ifdef CONFIG_STATE_NOTIFIER
+	// if display is switched off
+	if (!use_fb_notifier && bl_level == 0)
+		state_notifier_call_chain(STATE_NOTIFIER_SUSPEND, NULL);
+
+	// if display is switched on
+	if (!use_fb_notifier && bl_level != 0 && pre_brightness == 0)
+		state_notifier_call_chain(STATE_NOTIFIER_ACTIVE, NULL);
+#endif /*CONFIG_STATE_NOTIFIER*/
+
 #ifdef CONFIG_MACH_MSM8974_14001
 
 /* Xiaori.Yuan@Mobile Phone Software Dept.Driver, 2014/04/28  Add for add log for 14001 black screen */
