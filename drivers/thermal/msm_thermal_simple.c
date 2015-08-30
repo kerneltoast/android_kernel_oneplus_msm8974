@@ -158,7 +158,7 @@ static int cpu_do_throttle(struct notifier_block *nb, unsigned long val, void *d
 
 	switch (t_pol->cpu_throttle) {
 	case UNTHROTTLE:
-		policy->max = user_max ? user_max : policy->cpuinfo.max_freq;
+		policy->max = user_max ? user_max : policy->user_policy.max;
 		break;
 	case LOW_THROTTLE:
 	case MID_THROTTLE:
