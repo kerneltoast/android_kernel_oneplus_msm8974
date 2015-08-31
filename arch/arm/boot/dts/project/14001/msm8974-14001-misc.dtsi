@@ -17,6 +17,7 @@
 			reg = <0x68>;
 			sn3193,sdb-gpio = <&msmgpio 45 0x00>;
 		};
+
 		ti_lm3630_bl@36 {
 			compatible = "ti,lm3630";
 			reg = <0x36>;

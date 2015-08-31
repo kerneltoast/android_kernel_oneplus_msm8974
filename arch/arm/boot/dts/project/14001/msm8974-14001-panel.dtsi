@@ -11,6 +11,30 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
 /include/ "dsi-panel-jdi-1080p-cmd.dtsi"
 /include/ "dsi-panel-sharp-1080p-cmd.dtsi"
 /include/ "dsi-panel-truly-1080p-cmd.dtsi"
+
+&soc {
+	mdss_dsi0: qcom,mdss_dsi@fd922800 {
+		qcom,panel-supply-entries {
+			/delete-property/ qcom,panel-supply-entry@0;
+		};
+	};
+
+	mdss_dsi1: qcom,mdss_dsi@fd922e00 {
+		qcom,panel-supply-entries {
+			/delete-property/ qcom,panel-supply-entry@0;
+		};
+	};
+};
+
+&mdss_hdmi_tx {
+	status = "disabled";
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+	batfet-supply = <&pm8941_chg_batif>;
+};

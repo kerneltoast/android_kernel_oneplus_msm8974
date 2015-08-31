@@ -10,6 +10,18 @@
  * GNU General Public License for more details.
  */
 
+&pm8941_flash0 {
+	qcom,current = <560>;
+};
+
+&pm8941_flash1 {
+	qcom,current = <560>;
+};
+
+&pm8941_torch {
+	qcom,current = <53>;
+};
+
 &soc {
 	led_flash0: qcom,camera-led-flash {
 		cell-index = <0>;
@@ -21,7 +33,6 @@
 };
 
 &cci {
-
 	actuator0: qcom,actuator@18 {
 		cell-index = <0>;
 		reg = <0x18>;
@@ -102,4 +113,32 @@
 		qcom,cci-master = <1>;
 		status = "ok";
 	};
+};
+
+&master0 {
+	qcom,hw-thigh = <20>;
+	qcom,hw-tlow = <28>;
+	qcom,hw-tsu-sto = <50>;
+	qcom,hw-tsu-sta = <50>;
+	qcom,hw-thd-dat = <13>;
+	qcom,hw-thd-sta = <30>;
+	qcom,hw-tbuf = <25>;
+	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-trdhld = <6>;
+	qcom,hw-tsp = <3>;
+	status = "ok";
+};
+
+&master1 {
+	qcom,hw-thigh = <20>;
+	qcom,hw-tlow = <28>;
+	qcom,hw-tsu-sto = <50>;
+	qcom,hw-tsu-sta = <50>;
+	qcom,hw-thd-dat = <13>;
+	qcom,hw-thd-sta = <30>;
+	qcom,hw-tbuf = <25>;
+	qcom,hw-scl-stretch-en = <0>;
+	qcom,hw-trdhld = <6>;
+	qcom,hw-tsp = <3>;
+	status = "ok";
 };

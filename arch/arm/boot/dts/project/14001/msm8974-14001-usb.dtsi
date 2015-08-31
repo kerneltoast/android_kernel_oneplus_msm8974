@@ -10,18 +10,11 @@
  * GNU General Public License for more details.
  */
 
-&soc {
-	i2c@f9924000 {
-		synaptics-rmi-ts@20 {
-			compatible = "synaptics,rmi-ts";
-			reg = <0x20>;
-			interrupt-parent = <&msmgpio>;
-			interrupts = <61 0x8>;
-			synaptics,irq-gpio = <&msmgpio 61 0x00>;
-			synaptics,wakeup-gpio = <&msmgpio 57 0x00>;
-			synaptics,reset-gpio = <&msmgpio 60 0x00>;
-			synaptics,id-gpio = <&msmgpio 62 0x00>;
-			synaptics,id3-gpio = <&msmgpio 46 0x00>;
-		};
-	};
+&usb3 {
+	qcom,otg-capability;
+};
+
+&usb_otg {
+	qcom,hsusb-otg-otg-control = <2>;
+	qcom,hsusb-otg-phy-init-seq = <0x44 0x80 0x3F 0x81 0x4D 0x82 0x13 0x83 0xffffffff>;
 };
