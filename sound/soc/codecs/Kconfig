@@ -461,9 +461,3 @@ config SND_SOC_MSM_HDMI_CODEC_RX
 	help
 	HDMI audio drivers should be built only if the platform
         supports hdmi panel.
-
-#ifdef CONFIG_MACH_MSM8974_14001
-#xiaojun.lv@PhoneDpt.AudioDrv, 2014/06/13, add for TI smartPA TAS2552
-config SND_SOC_TAS2552
-	tristate
-#endif /*CONFIG_MACH_MSM8974_14001*/

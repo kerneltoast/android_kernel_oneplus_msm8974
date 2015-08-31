@@ -144,11 +144,6 @@
 			vdd-phy-supply = <&spi_eth_vreg>;
 		};
 	};
-
-	sound {
-		qcom,model = "msm8974-taiko-mtp-snd-card";
-		qcom,cdc-micbias2-headset-only;
-	};
 };
 
 &sdcc1 {

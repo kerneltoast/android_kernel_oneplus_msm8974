@@ -137,7 +137,7 @@ struct wcd9xxx_ocp_setting {
 	unsigned int	hph_ocp_limit:3; /* Headphone OCP current limit */
 };
 
-#define WCD9XXX_MAX_REGULATOR	8
+#define WCD9XXX_MAX_REGULATOR	10
 /*
  *      format : TABLA_<POWER_SUPPLY_PIN_NAME>_CUR_MAX
  *
@@ -153,6 +153,8 @@ struct wcd9xxx_ocp_setting {
 #define  WCD9XXX_VDDD_CDC_A_CUR_MAX       5000
 
 #define WCD9XXX_VDD_SPKDRV_NAME "cdc-vdd-spkdrv"
+#define WCD9XXX_VDD_HPMIC_SWITCH "cdc-vdd-hpmic-switch"
+#define WCD9XXX_VDD_MICBIAS_NAME "cdc-vdd-mic-bias"
 
 struct wcd9xxx_regulator {
 	const char *name;
@@ -173,12 +175,6 @@ struct wcd9xxx_pdata {
 	struct wcd9xxx_micbias_setting micbias;
 	struct wcd9xxx_ocp_setting ocp;
 	struct wcd9xxx_regulator regulator[WCD9XXX_MAX_REGULATOR];
-	/*liuyan 2013-11-26 add for getting the hpmic regulator*/
-	#ifdef CONFIG_MACH_MSM8974_14001
-       struct regulator *cdc_hpmic_switch;
-	int hpmic_regulator_count;
-	#endif
-	/*liuyan add end*/
 	u32 mclk_rate;
 	u32 dmic_sample_rate;
 };

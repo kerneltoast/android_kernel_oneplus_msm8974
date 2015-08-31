@@ -11,11 +11,7 @@
  */
 #ifndef __WCD9XXX_MBHC_H__
 #define __WCD9XXX_MBHC_H__
-#ifdef CONFIG_MACH_MSM8974_14001
-//liuyan add 2013-3-1, headset report
-#include<linux/switch.h>
-//liuyan add end
-#endif
+
 #include "wcd9xxx-resmgr.h"
 #include "wcdcal-hwdep.h"
 
@@ -240,22 +236,6 @@ struct wcd9xxx_mbhc_config {
 	unsigned int mclk_rate;
 	unsigned int gpio;
 	unsigned int gpio_irq;
-//liuyan add 2013-3-14,hpmic switch gpio
-#ifdef CONFIG_MACH_MSM8974_14001
-       int hpmic_switch_gpio; 
-	struct regulator	*cdc_hpmic_switch;
-	int hpmic_regulator_count;
-	int count_regulator;
-#ifdef CONFIG_MACH_MSM8974_14001
-/* xiaojun.lv@Prd.AudioDrv,2014/2/10,add for 14001 regulator*/ 
-	struct regulator	*cdc_spk;
-#endif /* CONFIG_MACH_MSM8974_14001 */	
-	int enable_spk_gpio;
-	int yda145_ctr_gpio;
-	int yda145_boost_gpio;
-    int headset_type;
-#endif
-//liuyan add end
 	int gpio_level_insert;
 	bool insert_detect; /* codec has own MBHC_INSERT_DETECT */
 	bool detect_extn_cable;
@@ -263,6 +243,7 @@ struct wcd9xxx_mbhc_config {
 	unsigned long micbias_enable_flags;
 	/* swap_gnd_mic returns true if extern GND/MIC swap switch toggled */
 	bool (*swap_gnd_mic) (struct snd_soc_codec *);
+	bool (*reset_gnd_mic) (struct snd_soc_card *);
 	unsigned long cs_enable_flags;
 	bool use_int_rbias;
 	bool do_recalibration;
@@ -306,6 +287,7 @@ struct wcd9xxx_mbhc_cb {
 	int (*enable_mb_source) (struct snd_soc_codec *, bool, bool);
 	void (*setup_int_rbias) (struct snd_soc_codec *, bool);
 	void (*pull_mb_to_vddio) (struct snd_soc_codec *, bool);
+	int (*enable_hpmic_switch) (struct snd_soc_codec *, bool);
 	struct firmware_cal * (*get_hwdep_fw_cal) (struct snd_soc_codec *,
 				enum wcd_cal_type);
 
@@ -388,11 +370,6 @@ struct wcd9xxx_mbhc {
 	u8   scaling_mux_in;
 	/* Holds codec specific interrupt mapping */
 	const struct wcd9xxx_mbhc_intr *intr_ids;
-#ifdef CONFIG_MACH_MSM8974_14001
-	//liuyan 2013-3-1,add for headset report
-	struct switch_dev wcd9xxx_sdev;
-	//liuyan add end
-#endif
 
 	/* Indicates status of current source switch */
 	bool is_cs_enabled;
