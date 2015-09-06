@@ -14,6 +14,7 @@ config SND_USB_AUDIO
 	select SND_HWDEP
 	select SND_RAWMIDI
 	select SND_PCM
+	select BITREVERSE
 	help
 	  Say Y here to include support for USB audio and USB MIDI
 	  devices.
@@ -90,7 +91,7 @@ config SND_USB_CAIAQ_INPUT
 
 config SND_USB_US122L
 	tristate "Tascam US-122L USB driver"
-	depends on X86 && EXPERIMENTAL
+	depends on X86
 	select SND_HWDEP
 	select SND_RAWMIDI
 	help

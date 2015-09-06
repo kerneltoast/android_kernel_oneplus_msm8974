@@ -184,10 +184,6 @@ config SND_SOC_MSM8974
 	select AUDIO_OCMEM
 	select DOLBY_DAP
 	select SND_HWDEP
-#ifdef CONFIG_MACH_MSM8974_14001
-#xiaojun.lv@PhoneDpt.AudioDrv, 2014/06/13, add for TI smartPA TAS2552
-	select SND_SOC_TAS2552
-#endif /*CONFIG_MACH_MSM8974_14001*/	
 	help
 	 To add support for SoC audio on MSM8974.
 	 This will enable sound soc drivers which

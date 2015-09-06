@@ -132,6 +132,8 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	int ret = 0;
 	uint16_t bits_per_sample = 16;
 	struct msm_pcm_routing_evt event;
+	struct asm_session_mtmx_strtr_param_window_v2_t asm_mtmx_strtr_window;
+	uint32_t param_id;
 
 	pcm = dev_get_drvdata(rtd->platform->dev);
 	mutex_lock(&pcm->lock);
@@ -190,6 +192,20 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 				dev_err(rtd->platform->dev,
 					"Error %d setting volume", ret);
 		}
+		/* Set to largest negative value */
+		asm_mtmx_strtr_window.window_lsw = 0x00000000;
+		asm_mtmx_strtr_window.window_msw = 0x80000000;
+		param_id = ASM_SESSION_MTMX_STRTR_PARAM_RENDER_WINDOW_START_V2;
+		q6asm_send_mtmx_strtr_window(pcm->audio_client,
+					     &asm_mtmx_strtr_window,
+					     param_id);
+		/* Set to largest positive value */
+		asm_mtmx_strtr_window.window_lsw = 0xffffffff;
+		asm_mtmx_strtr_window.window_msw = 0x7fffffff;
+		param_id = ASM_SESSION_MTMX_STRTR_PARAM_RENDER_WINDOW_END_V2;
+		q6asm_send_mtmx_strtr_window(pcm->audio_client,
+					     &asm_mtmx_strtr_window,
+					     param_id);
 	}
 	dev_info(rtd->platform->dev, "%s: Instance = %d, Stream ID = %s\n",
 			__func__ , pcm->instance, substream->pcm->id);
@@ -415,7 +431,7 @@ static int msm_pcm_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id msm_pcm_loopback_dt_match[] = {
-	{.compatible = "qti,msm-pcm-loopback"},
+	{.compatible = "qcom,msm-pcm-loopback"},
 	{}
 };
 

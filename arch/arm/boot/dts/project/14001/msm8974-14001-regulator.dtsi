@@ -10,6 +10,22 @@
  * GNU General Public License for more details.
  */
 
-&usb_otg {
-	qcom,hsusb-otg-phy-init-seq = <0x44 0x80 0x3F 0x81 0x4D 0x82 0x13 0x83 0xffffffff>;
+&pm8941_boost {
+	regulator-min-microvolt = <4500000>;
+	regulator-max-microvolt = <4500000>;
+};
+
+&pm8941_l3 {
+	regulator-min-microvolt = <1000000>;
+	qcom,init-voltage = <1000000>;
+};
+
+&pm8941_l17 {
+	regulator-min-microvolt = <2700000>;
+	qcom,init-voltage = <2700000>;
+};
+
+&pm8941_l23 {
+	regulator-min-microvolt = <2800000>;
+	qcom,init-voltage = <2800000>;
 };

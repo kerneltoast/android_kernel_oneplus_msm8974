@@ -33,10 +33,7 @@
 
 &pm8941_chg {
 	status = "ok";
-        /*CONFIG_MACH_MSM8974_14001*/
-	/*wangjc enable charger*/
-	/*qcom,charging-disabled;*/
-	/*wangjc end.*/
+
 	qcom,battery-data = <&mtp_batterydata>;
 
 	qcom,chgr@1000 {

@@ -139,7 +139,7 @@ struct snd_hwdep_dsp_image {
  *                                                                           *
  *****************************************************************************/
 
-#define SNDRV_PCM_VERSION		SNDRV_PROTOCOL_VERSION(2, 0, 10)
+#define SNDRV_PCM_VERSION		SNDRV_PROTOCOL_VERSION(2, 0, 11)
 
 typedef unsigned long snd_pcm_uframes_t;
 typedef signed long snd_pcm_sframes_t;
@@ -217,7 +217,9 @@ typedef int __bitwise snd_pcm_format_t;
 #define	SNDRV_PCM_FORMAT_G723_24_1B	((__force snd_pcm_format_t) 45) /* 1 sample in 1 byte */
 #define	SNDRV_PCM_FORMAT_G723_40	((__force snd_pcm_format_t) 46) /* 8 Samples in 5 bytes */
 #define	SNDRV_PCM_FORMAT_G723_40_1B	((__force snd_pcm_format_t) 47) /* 1 sample in 1 byte */
-#define	SNDRV_PCM_FORMAT_LAST		SNDRV_PCM_FORMAT_G723_40_1B
+#define SNDRV_PCM_FORMAT_DSD_U8		((__force snd_pcm_format_t) 48) /* DSD, 1-byte samples DSD (x8) */
+#define SNDRV_PCM_FORMAT_DSD_U16_LE	((__force snd_pcm_format_t) 49) /* DSD, 2-byte samples DSD (x16), little endian */
+#define SNDRV_PCM_FORMAT_LAST		SNDRV_PCM_FORMAT_DSD_U16_LE
 
 #ifdef SNDRV_LITTLE_ENDIAN
 #define	SNDRV_PCM_FORMAT_S16		SNDRV_PCM_FORMAT_S16_LE
@@ -261,6 +263,7 @@ typedef int __bitwise snd_pcm_subformat_t;
 #define SNDRV_PCM_INFO_JOINT_DUPLEX	0x00200000	/* playback and capture stream are somewhat correlated */
 #define SNDRV_PCM_INFO_SYNC_START	0x00400000	/* pcm support some kind of sync go */
 #define SNDRV_PCM_INFO_NO_PERIOD_WAKEUP	0x00800000	/* period wakeup can be disabled */
+#define SNDRV_PCM_INFO_HAS_WALL_CLOCK   0x01000000      /* has audio wall clock for audio/system time sync */
 #define SNDRV_PCM_INFO_FIFO_IN_FRAMES	0x80000000	/* internal kernel flag - FIFO size is in frames */
 
 typedef int __bitwise snd_pcm_state_t;
@@ -409,7 +412,8 @@ struct snd_pcm_status {
 	snd_pcm_uframes_t avail_max;	/* max frames available on hw since last status */
 	snd_pcm_uframes_t overrange;	/* count of ADC (capture) overrange detections from last status */
 	snd_pcm_state_t suspended_state; /* suspended stream state */
-	unsigned char reserved[60];	/* must be filled with zero */
+	struct timespec audio_tstamp;	/* from sample counter or wall clock */
+	unsigned char reserved[60-sizeof(struct timespec)]; /* must be filled with zero */
 };
 
 struct snd_pcm_mmap_status {
@@ -418,6 +422,7 @@ struct snd_pcm_mmap_status {
 	snd_pcm_uframes_t hw_ptr;	/* RO: hw ptr (0...boundary-1) */
 	struct timespec tstamp;		/* Timestamp */
 	snd_pcm_state_t suspended_state; /* RO: suspended stream state */
+	struct timespec audio_tstamp;	/* from sample counter or wall clock */
 };
 
 struct snd_pcm_mmap_control {
@@ -462,6 +467,9 @@ enum {
 /* channel positions */
 enum {
 	SNDRV_CHMAP_UNKNOWN = 0,
+	SNDRV_CHMAP_NA,		/* N/A, silent */
+	SNDRV_CHMAP_MONO,	/* mono stream */
+	/* this follows the alsa-lib mixer channel value + 3 */
 	SNDRV_CHMAP_FL,		/* front left */
 	SNDRV_CHMAP_FC,		/* front center */
 	SNDRV_CHMAP_FR,		/* front right */
@@ -481,8 +489,23 @@ enum {
 	SNDRV_CHMAP_FCH,	/* front center high */
 	SNDRV_CHMAP_FRH,	/* front right high */
 	SNDRV_CHMAP_TC,		/* top center */
-	SNDRV_CHMAP_NA,		/* N/A, silent */
-	SNDRV_CHMAP_LAST = SNDRV_CHMAP_NA,
+	SNDRV_CHMAP_TFL,	/* top front left */
+	SNDRV_CHMAP_TFR,	/* top front right */
+	SNDRV_CHMAP_TFC,	/* top front center */
+	SNDRV_CHMAP_TRL,	/* top rear left */
+	SNDRV_CHMAP_TRR,	/* top rear right */
+	SNDRV_CHMAP_TRC,	/* top rear center */
+	/* new definitions for UAC2 */
+	SNDRV_CHMAP_TFLC,	/* top front left center */
+	SNDRV_CHMAP_TFRC,	/* top front right center */
+	SNDRV_CHMAP_TSL,	/* top side left */
+	SNDRV_CHMAP_TSR,	/* top side right */
+	SNDRV_CHMAP_LLFE,	/* left LFE */
+	SNDRV_CHMAP_RLFE,	/* right LFE */
+	SNDRV_CHMAP_BC,		/* bottom center */
+	SNDRV_CHMAP_BLC,	/* bottom left center */
+	SNDRV_CHMAP_BRC,	/* bottom right center */
+	SNDRV_CHMAP_LAST = SNDRV_CHMAP_BRC,
 };
 
 #define SNDRV_CHMAP_POSITION_MASK	0xffff
