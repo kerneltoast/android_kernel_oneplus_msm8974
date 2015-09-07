@@ -13,6 +13,8 @@ THREAD="-j$(grep -c ^processor /proc/cpuinfo)"
 KERNEL="zImage"
 DTBIMAGE="dtb"
 DEFCONFIG="ak_bacon_defconfig"
+KERNEL_DIR=`pwd`
+RESOURCE_DIR="$KERNEL_DIR/.."
 
 # Kernel Details
 BASE_AK_VER="AK"
@@ -21,19 +23,18 @@ AK_VER="$BASE_AK_VER$VER"
 
 # Vars
 export LOCALVERSION=~`echo $AK_VER`
-export CROSS_COMPILE=${HOME}/android/AK-uber-5.2/bin/arm-eabi-
+export CROSS_COMPILE="$RESOURCE_DIR/AK-uber-5.2/bin/arm-eabi-"
 export ARCH=arm
 export SUBARCH=arm
 export KBUILD_BUILD_USER=ak
 export KBUILD_BUILD_HOST=kernel
 
 # Paths
-KERNEL_DIR=`pwd`
-REPACK_DIR="${HOME}/android/AK-OnePone-AnyKernel2"
-PATCH_DIR="${HOME}/android/AK-OnePone-AnyKernel2/patch"
-MODULES_DIR="${HOME}/android/AK-OnePone-AnyKernel2/modules"
-ZIP_MOVE="${HOME}/android/AK-releases"
-ZIMAGE_DIR="${HOME}/android/AK-OnePone-Reborn-CAF/arch/arm/boot"
+REPACK_DIR="$RESOURCE_DIR/AK-OnePone-AnyKernel2"
+PATCH_DIR="$RESOURCE_DIR/AK-OnePone-AnyKernel2/patch"
+MODULES_DIR="$RESOURCE_DIR/AK-OnePone-AnyKernel2/modules"
+ZIP_MOVE="$RESOURCE_DIR/AK-releases"
+ZIMAGE_DIR="$KERNEL_DIR/arch/arm/boot"
 
 # Functions
 function clean_all {
