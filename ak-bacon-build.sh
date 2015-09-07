@@ -18,7 +18,7 @@ RESOURCE_DIR="$KERNEL_DIR/.."
 
 # Kernel Details
 BASE_AK_VER="AK"
-VER=".014.OPO.CAF"
+VER=".015.OPO.CAF"
 AK_VER="$BASE_AK_VER$VER"
 
 # Vars
