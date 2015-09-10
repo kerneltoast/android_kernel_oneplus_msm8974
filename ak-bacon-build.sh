@@ -15,6 +15,7 @@ DTBIMAGE="dtb"
 DEFCONFIG="ak_bacon_defconfig"
 KERNEL_DIR=`pwd`
 RESOURCE_DIR="$KERNEL_DIR/.."
+ANYKERNEL_DIR="$RESOURCE_DIR/AK-OnePlusOne-AnyKernel2"
 
 # Kernel Details
 BASE_AK_VER="AK"
@@ -30,9 +31,9 @@ export KBUILD_BUILD_USER=ak
 export KBUILD_BUILD_HOST=kernel
 
 # Paths
-REPACK_DIR="$RESOURCE_DIR/AK-OnePone-AnyKernel2"
-PATCH_DIR="$RESOURCE_DIR/AK-OnePone-AnyKernel2/patch"
-MODULES_DIR="$RESOURCE_DIR/AK-OnePone-AnyKernel2/modules"
+REPACK_DIR="$ANYKERNEL_DIR"
+PATCH_DIR="$ANYKERNEL_DIR/patch"
+MODULES_DIR="$ANYKERNEL_DIR/modules"
 ZIP_MOVE="$RESOURCE_DIR/AK-releases"
 ZIMAGE_DIR="$KERNEL_DIR/arch/arm/boot"
 
