@@ -2400,30 +2400,34 @@ static void wcd9xxx_find_plug_and_report(struct wcd9xxx_mbhc *mbhc,
 /* called under codec_resource_lock acquisition */
 static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 {
-#ifndef CONFIG_MACH_OPPO
 	enum wcd9xxx_mbhc_plug_type plug_type;
 	bool current_source_enable;
-#endif
 
 	pr_debug("%s: enter\n", __func__);
 
 	WCD9XXX_BCL_ASSERT_LOCKED(mbhc->resmgr);
 
-	mbhc->scaling_mux_in = 0x04;
-
-#ifdef CONFIG_MACH_OPPO
-	wcd9xxx_cleanup_hs_polling(mbhc);
-	wcd9xxx_schedule_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
-#else
 	current_source_enable = (((mbhc->mbhc_cfg->cs_enable_flags &
 		      (1 << MBHC_CS_ENABLE_INSERTION)) != 0) &&
 		     (!(snd_soc_read(mbhc->codec,
 				     mbhc->mbhc_bias_regs.ctl_reg) & 0x80)));
 
+	mbhc->scaling_mux_in = 0x04;
+
 	if (current_source_enable) {
 		wcd9xxx_turn_onoff_current_source(mbhc, &mbhc->mbhc_bias_regs,
 						  true, false);
 		plug_type = wcd9xxx_codec_cs_get_plug_type(mbhc, false);
+#ifdef CONFIG_MACH_OPPO
+		/*
+		 * Our hardware usually reports an invalid/incorrect plug type
+		 * on the very first poll, but the second poll often returns the
+		 * correct plug type, so poll twice in hopes of getting lucky and
+		 * cutting detection latency in half for PLUG_TYPE_HEADPHONE.
+		 */
+		usleep(1000);
+		plug_type = wcd9xxx_codec_cs_get_plug_type(mbhc, false);
+#endif
 		/*
 		 * For other plug types, the current source disable
 		 * will be done from wcd9xxx_correct_swch_plug
@@ -2449,6 +2453,12 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 		return;
 	}
 
+#ifdef CONFIG_MACH_OPPO
+	if (plug_type == PLUG_TYPE_HEADPHONE)
+		wcd9xxx_report_plug(mbhc, 1, SND_JACK_HEADPHONE);
+	wcd9xxx_cleanup_hs_polling(mbhc);
+	wcd9xxx_schedule_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
+#else
 	if (plug_type == PLUG_TYPE_INVALID ||
 	    plug_type == PLUG_TYPE_GND_MIC_SWAP) {
 		wcd9xxx_cleanup_hs_polling(mbhc);
