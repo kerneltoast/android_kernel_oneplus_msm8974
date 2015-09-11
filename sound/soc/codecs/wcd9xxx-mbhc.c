@@ -3160,7 +3160,9 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 			break;
 		}
 
-		msleep(HS_DETECT_PLUG_INERVAL_MS);
+		if (retry != 1)
+			msleep(HS_DETECT_PLUG_INERVAL_MS);
+
 		if (wcd9xxx_swch_level_remove(mbhc)) {
 			wrk_complete = false;
 			pr_debug("%s: Switch level is low\n", __func__);
