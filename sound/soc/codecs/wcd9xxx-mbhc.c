@@ -66,7 +66,6 @@
 
 #define HS_DETECT_PLUG_TIME_MS (5 * 1000)
 #define ANC_HPH_DETECT_PLUG_TIME_MS (5 * 1000)
-#define HS_DETECT_PLUG_INERVAL_MS 100
 #define SWCH_REL_DEBOUNCE_TIME_MS 50
 #define SWCH_IRQ_DEBOUNCE_TIME_US 5000
 #define BTN_RELEASE_DEBOUNCE_TIME_MS 25
@@ -3160,8 +3159,8 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 			break;
 		}
 
-		if (retry != 1)
-			msleep(HS_DETECT_PLUG_INERVAL_MS);
+		if (retry > 1)
+			msleep(5 * retry);
 
 		if (wcd9xxx_swch_level_remove(mbhc)) {
 			wrk_complete = false;
