@@ -243,7 +243,7 @@ static unsigned long isolate_freepages_block(struct compact_control *cc,
 {
 	int nr_scanned = 0, total_isolated = 0;
 	struct page *cursor, *valid_page = NULL;
-	unsigned long flags;
+	unsigned long flags = 0;
 	bool locked = false;
 
 	cursor = pfn_to_page(blockpfn);
