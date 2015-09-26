@@ -2426,7 +2426,7 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 		 * Our hardware usually reports an invalid/incorrect plug type
 		 * on the very first poll, but the second poll often returns the
 		 * correct plug type, so poll twice in hopes of getting lucky and
-		 * cutting detection latency in half for PLUG_TYPE_HEADPHONE.
+		 * significantly reducing detection latency using fast-detection.
 		 */
 		usleep(1000);
 		plug_type = wcd9xxx_codec_cs_get_plug_type(mbhc, false);
@@ -2458,10 +2458,15 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 	}
 
 #ifdef CONFIG_MACH_OPPO
-	if (plug_type == PLUG_TYPE_HEADPHONE)
+	mbhc->fast_detection = 0;
+
+	if (plug_type == PLUG_TYPE_HEADPHONE) {
+		mbhc->fast_detection = PLUG_TYPE_HEADPHONE;
 		wcd9xxx_report_plug(mbhc, 1, SND_JACK_HEADPHONE);
-	else if (plug_type == PLUG_TYPE_HEADSET)
+	} else if (plug_type == PLUG_TYPE_HEADSET) {
+		mbhc->fast_detection = PLUG_TYPE_HEADSET;
 		wcd9xxx_find_plug_and_report(mbhc, PLUG_TYPE_HEADSET);
+	}
 
 	wcd9xxx_cleanup_hs_polling(mbhc);
 	wcd9xxx_schedule_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
@@ -3117,18 +3122,131 @@ static inline void wcd9xxx_handle_gnd_mic_swap(struct wcd9xxx_mbhc *mbhc,
 	}
 }
 
+#ifdef CONFIG_MACH_OPPO
+static int wcd9xxx_do_plug_correction(struct wcd9xxx_mbhc *mbhc, int retry,
+			enum wcd9xxx_mbhc_plug_type plug_type, bool *correction,
+			bool current_source_enable, bool from_loop)
+{
+	static int hph_trans_cnt = 0, pt_gnd_mic_swap_cnt = 0;
+
+	/* Sanitize static vars on first run */
+	if (retry == 1) {
+		hph_trans_cnt = 0;
+		pt_gnd_mic_swap_cnt = 0;
+	}
+
+	if (plug_type == PLUG_TYPE_INVALID && !mbhc->fast_detection) {
+		pr_debug("Invalid plug in attempt # %d\n", retry);
+		if (!mbhc->mbhc_cfg->detect_extn_cable &&
+		    retry == NUM_ATTEMPTS_TO_REPORT &&
+		    mbhc->current_plug == PLUG_TYPE_NONE) {
+			WCD9XXX_BCL_LOCK(mbhc->resmgr);
+			wcd9xxx_report_plug(mbhc, 1,
+					    SND_JACK_HEADPHONE);
+			WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
+		}
+	} else if (plug_type == PLUG_TYPE_HEADPHONE && !mbhc->fast_detection) {
+		pr_debug("Good headphone detected, continue polling\n");
+		WCD9XXX_BCL_LOCK(mbhc->resmgr);
+		if (mbhc->mbhc_cfg->detect_extn_cable) {
+			if (mbhc->current_plug != plug_type)
+				wcd9xxx_report_plug(mbhc, 1,
+						    SND_JACK_HEADPHONE);
+		} else if (mbhc->current_plug == PLUG_TYPE_NONE) {
+			wcd9xxx_report_plug(mbhc, 1,
+					    SND_JACK_HEADPHONE);
+		}
+		WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
+	} else if (plug_type == PLUG_TYPE_HIGH_HPH && !mbhc->fast_detection) {
+		pr_debug("%s: High HPH detected, continue polling\n",
+			  __func__);
+		WCD9XXX_BCL_LOCK(mbhc->resmgr);
+		if (mbhc->mbhc_cfg->detect_extn_cable) {
+			if (mbhc->current_plug != plug_type)
+				wcd9xxx_report_plug(mbhc, 1,
+						    SND_JACK_LINEOUT);
+		} else if (mbhc->current_plug == PLUG_TYPE_NONE) {
+			wcd9xxx_report_plug(mbhc, 1,
+					    SND_JACK_HEADPHONE);
+		}
+		WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
+	} else {
+		if (mbhc->fast_detection) {
+			switch (plug_type) {
+			case PLUG_TYPE_INVALID:
+			case PLUG_TYPE_HEADPHONE:
+			case PLUG_TYPE_HIGH_HPH:
+				return 0;
+			default:
+				/* Break out of parent loop */
+				return 1;
+			}
+		}
+
+		if (plug_type == PLUG_TYPE_GND_MIC_SWAP) {
+			pt_gnd_mic_swap_cnt++;
+			if (pt_gnd_mic_swap_cnt >=
+					GND_MIC_SWAP_THRESHOLD)
+				wcd9xxx_handle_gnd_mic_swap(mbhc,
+						pt_gnd_mic_swap_cnt,
+						plug_type);
+			pr_debug("%s: unsupported HS detected, continue polling\n",
+				 __func__);
+			return 0;
+		} else {
+			if (from_loop && plug_type == PLUG_TYPE_HEADSET) {
+				hph_trans_cnt++;
+				if (hph_trans_cnt < HPH_TRANS_THRESHOLD)
+					return 0;
+			}
+
+			WCD9XXX_BCL_LOCK(mbhc->resmgr);
+			/* Turn off override/current source */
+			if (current_source_enable)
+				wcd9xxx_turn_onoff_current_source(mbhc,
+						&mbhc->mbhc_bias_regs,
+						false, false);
+			else
+				wcd9xxx_turn_onoff_override(mbhc,
+							    false);
+			/*
+			 * The valid plug also includes
+			 * PLUG_TYPE_GND_MIC_SWAP
+			 */
+			wcd9xxx_find_plug_and_report(mbhc, plug_type);
+			WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
+			pr_debug("Attempt %d found correct plug %d\n",
+					retry,
+					plug_type);
+			*correction = true;
+		}
+
+		/* Break out of parent loop */
+		return 1;
+	}
+
+	return 0;
+}
+#endif
+
 static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 {
 	struct wcd9xxx_mbhc *mbhc;
 	struct snd_soc_codec *codec;
 	enum wcd9xxx_mbhc_plug_type plug_type = PLUG_TYPE_INVALID;
 	unsigned long timeout;
-	int retry = 0, pt_gnd_mic_swap_cnt = 0;
+	int retry = 0;
 	int highhph_cnt = 0;
+#ifndef CONFIG_MACH_OPPO
+	int pt_gnd_mic_swap_cnt = 0;
 	int hph_trans_cnt = 0;
+#endif
 	bool correction = false;
 	bool current_source_enable;
 	bool wrk_complete = true, highhph = false;
+#ifdef CONFIG_MACH_OPPO
+	int break_out = 0;
+#endif
 
 	pr_debug("%s: enter\n", __func__);
 
@@ -3196,6 +3314,13 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 					(highhph_cnt + 1) :
 					0;
 		highhph = wcd9xxx_mbhc_enable_mb_decision(highhph_cnt);
+#ifdef CONFIG_MACH_OPPO
+		break_out = wcd9xxx_do_plug_correction(mbhc, retry,
+							plug_type, &correction,
+							current_source_enable, true);
+		if (break_out)
+			break;
+#else
 		if (plug_type == PLUG_TYPE_INVALID) {
 			pr_debug("Invalid plug in attempt # %d\n", retry);
 			if (!mbhc->mbhc_cfg->detect_extn_cable &&
@@ -3274,7 +3399,18 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 			}
 			break;
 		}
+#endif
 	}
+
+#ifdef CONFIG_MACH_OPPO
+	/* Change to the correct plug type if fast-detection was wrong */
+	if (mbhc->fast_detection && plug_type != mbhc->fast_detection) {
+		mbhc->fast_detection = 0;
+		wcd9xxx_do_plug_correction(mbhc, retry, plug_type,
+				&correction, current_source_enable,
+				false);
+	}
+#endif
 
 	highhph = false;
 	if (wrk_complete && plug_type == PLUG_TYPE_HIGH_HPH) {
