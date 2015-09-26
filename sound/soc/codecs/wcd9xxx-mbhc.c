@@ -2455,6 +2455,9 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 #ifdef CONFIG_MACH_OPPO
 	if (plug_type == PLUG_TYPE_HEADPHONE)
 		wcd9xxx_report_plug(mbhc, 1, SND_JACK_HEADPHONE);
+	else if (plug_type == PLUG_TYPE_HEADSET)
+		wcd9xxx_find_plug_and_report(mbhc, PLUG_TYPE_HEADSET);
+
 	wcd9xxx_cleanup_hs_polling(mbhc);
 	wcd9xxx_schedule_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
 #else
