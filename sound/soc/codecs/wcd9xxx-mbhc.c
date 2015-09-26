@@ -2463,7 +2463,14 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 	if (plug_type == PLUG_TYPE_HEADPHONE) {
 		mbhc->fast_detection = PLUG_TYPE_HEADPHONE;
 		wcd9xxx_report_plug(mbhc, 1, SND_JACK_HEADPHONE);
-	} else if (plug_type == PLUG_TYPE_HEADSET) {
+	} else if (plug_type == PLUG_TYPE_HEADSET ||
+			plug_type == PLUG_TYPE_HIGH_HPH) {
+		/*
+		 * Our hardware often mistakes a headset for high-hph,
+		 * so add high-hph to the fast-detection path and assume
+		 * it is a headset. We will defer to the correct-plug worker
+		 * anyway if this is a bad detection, so this is safe.
+		 */
 		mbhc->fast_detection = PLUG_TYPE_HEADSET;
 		wcd9xxx_find_plug_and_report(mbhc, PLUG_TYPE_HEADSET);
 	}
