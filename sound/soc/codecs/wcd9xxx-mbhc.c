@@ -3187,6 +3187,12 @@ static int wcd9xxx_do_plug_correction(struct wcd9xxx_mbhc *mbhc, int retry,
 		}
 		WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
 	} else {
+		if (from_loop && plug_type == PLUG_TYPE_HEADSET) {
+			hph_trans_cnt++;
+			if (hph_trans_cnt < HPH_TRANS_THRESHOLD)
+				return 0;
+		}
+
 		if (mbhc->fast_detection) {
 			switch (plug_type) {
 			case PLUG_TYPE_INVALID:
@@ -3210,12 +3216,6 @@ static int wcd9xxx_do_plug_correction(struct wcd9xxx_mbhc *mbhc, int retry,
 				 __func__);
 			return 0;
 		} else {
-			if (from_loop && plug_type == PLUG_TYPE_HEADSET) {
-				hph_trans_cnt++;
-				if (hph_trans_cnt < HPH_TRANS_THRESHOLD)
-					return 0;
-			}
-
 			WCD9XXX_BCL_LOCK(mbhc->resmgr);
 			/* Turn off override/current source */
 			if (current_source_enable)
