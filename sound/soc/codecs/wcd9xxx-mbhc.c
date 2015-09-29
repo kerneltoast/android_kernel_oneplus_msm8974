@@ -3199,6 +3199,8 @@ static int wcd9xxx_do_plug_correction(struct wcd9xxx_mbhc *mbhc, int retry,
 			case PLUG_TYPE_HEADPHONE:
 			case PLUG_TYPE_HIGH_HPH:
 				return 0;
+			case PLUG_TYPE_GND_MIC_SWAP:
+				break;
 			default:
 				/* Break out of parent loop */
 				return 1;
@@ -3208,7 +3210,8 @@ static int wcd9xxx_do_plug_correction(struct wcd9xxx_mbhc *mbhc, int retry,
 		if (plug_type == PLUG_TYPE_GND_MIC_SWAP) {
 			pt_gnd_mic_swap_cnt++;
 			if (pt_gnd_mic_swap_cnt >=
-					GND_MIC_SWAP_THRESHOLD)
+					GND_MIC_SWAP_THRESHOLD &&
+					!mbhc->fast_detection)
 				wcd9xxx_handle_gnd_mic_swap(mbhc,
 						pt_gnd_mic_swap_cnt,
 						plug_type);
