@@ -2482,7 +2482,9 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 		wcd9xxx_find_plug_and_report(mbhc, PLUG_TYPE_HEADSET);
 	}
 
-	wcd9xxx_cleanup_hs_polling(mbhc);
+	if (mbhc->fast_detection != PLUG_TYPE_HEADSET)
+		wcd9xxx_cleanup_hs_polling(mbhc);
+
 	wcd9xxx_schedule_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
 #else
 	if (plug_type == PLUG_TYPE_INVALID ||
@@ -3417,12 +3419,17 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 	}
 
 #ifdef CONFIG_MACH_OPPO
-	/* Change to the correct plug type if fast-detection was wrong */
-	if (mbhc->fast_detection && plug_type != mbhc->fast_detection) {
-		mbhc->fast_detection = 0;
-		wcd9xxx_do_plug_correction(mbhc, retry, plug_type,
-				&correction, current_source_enable,
-				false);
+	if (mbhc->fast_detection) {
+		/* Change to the correct plug type if fast-detection was wrong */
+		if (plug_type != mbhc->fast_detection) {
+			mbhc->fast_detection = 0;
+			wcd9xxx_do_plug_correction(mbhc, retry, plug_type,
+					&correction, current_source_enable,
+					false);
+		} else if (plug_type == PLUG_TYPE_HEADSET) {
+			/* Restart button polling */
+			wcd9xxx_start_hs_polling(mbhc);
+		}
 	}
 #endif
 
