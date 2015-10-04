@@ -267,13 +267,13 @@
 
 #define AUTO_CHARGING_BATT_TEMP_T0                           -100 
 #define AUTO_CHARGING_BATT_TEMP_T1                            0    
-#define AUTO_CHARGING_BATT_TEMP_T2                            30 /* yangfangbiao@oneplus.cn, 2015/01/06  Add for  sync with KK charge standard  */
-#define AUTO_CHARGING_BATT_TEMP_T3							  70 /* yangfangbiao@oneplus.cn, 2015/01/06  Add for  sync with KK charge standard  */
-#define AUTO_CHARGING_BATT_TEMP_T4                            450  /* yangfangbiao@oneplus.cn, 2015/01/06  Add for  sync with KK charge standard  */
-#define AUTO_CHARGING_BATT_TEMP_T5                            550  /* yangfangbiao@oneplus.cn, 2015/01/06  Add for  sync with KK charge standard  */
+#define AUTO_CHARGING_BATT_TEMP_T2                            10 /* yangfangbiao@oneplus.cn, 2015/01/06  Add for  sync with KK charge standard  */
+#define AUTO_CHARGING_BATT_TEMP_T3							  50 /* yangfangbiao@oneplus.cn, 2015/01/06  Add for  sync with KK charge standard  */
+#define AUTO_CHARGING_BATT_TEMP_T4                            460  /* yangfangbiao@oneplus.cn, 2015/01/06  Add for  sync with KK charge standard  */
+#define AUTO_CHARGING_BATT_TEMP_T5                            570  /* yangfangbiao@oneplus.cn, 2015/01/06  Add for  sync with KK charge standard  */
 #define AUTO_CHARGING_BATT_REMOVE_TEMP                        -400 
 #define AUTO_CHARGING_BATTERY_TEMP_HYST_FROM_HOT_TO_WARM      40
-#define AUTO_CHARGING_BATTERY_TEMP_HYST_FROM_WARM_TO_NORMAL   30
+#define AUTO_CHARGING_BATTERY_TEMP_HYST_FROM_WARM_TO_NORMAL   20
 #define AUTO_CHARGING_BATTERY_TEMP_HYST_FROM_COOL_TO_NORMAL   10
 #define AUTO_CHARGING_BATTERY_TEMP_HYST_FROM_COLD_TO_COOL     30
 
@@ -7474,10 +7474,10 @@ static int handle_batt_temp_warm(struct qpnp_chg_chip *chip)
 			if (qpnp_charger_type_get(chip) == POWER_SUPPLY_TYPE_USB_DCP)
 				qpnp_chg_iusbmax_set(chip, chip->aicl_current);
 #else
-			if (chip->aicl_current > 0 && chip->aicl_current < 900)
+			if (chip->aicl_current > 0 && chip->aicl_current < 1200)
 				qpnp_chg_iusbmax_set(chip, chip->aicl_current);
 			else
-				qpnp_chg_iusbmax_set(chip, 900);
+				qpnp_chg_iusbmax_set(chip, 1200);
 #endif
 		}
 		
