@@ -3430,8 +3430,15 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 					&correction, current_source_enable,
 					false);
 		} else if (plug_type == PLUG_TYPE_HEADSET) {
+			WCD9XXX_BCL_LOCK(mbhc->resmgr);
+			if (mbhc->micbias_enable && mbhc->micbias_enable_cb) {
+				/* Reset mic bias to fix static background noise */
+				mbhc->micbias_enable_cb(mbhc->codec, true,
+							mbhc->mbhc_cfg->micbias);
+			}
 			/* Restart button polling */
 			wcd9xxx_start_hs_polling(mbhc);
+			WCD9XXX_BCL_UNLOCK(mbhc->resmgr);
 		}
 	}
 #endif
