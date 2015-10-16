@@ -6704,35 +6704,29 @@ static int set_prop_batt_health(struct qpnp_chg_chip *chip, int batt_health)
 #define MAX_COUNT	50
 #ifdef CONFIG_MACH_MSM8974_14001
 /* jingchun.wang@Onlinerd.Driver, 2014/01/02  Add for set soft aicl voltage to 4.4v */
-#define SOFT_AICL_VOL	4555
-#endif /*CONFIG_MACH_MSM8974_14001*/
+#define SOFT_AICL_VOL	4500
+#endif /*CONFIG_MACH_OPPO*/
 /* jingchun.wang@Onlinerd.Driver, 2013/12/27  Add for auto adapt current by software. */
 static int soft_aicl(struct qpnp_chg_chip *chip)
 {
 	int i, chg_vol;
 
-	chip->aicl_interrupt = false;
-	qpnp_chg_vinmin_set(chip, 4440);
 	qpnp_chg_iusbmax_set(chip, 150);
 	qpnp_chg_ibatmax_set(chip, chip->max_bat_chg_current);
 	qpnp_chg_charge_en(chip, 1);
-	for (i = 0; i < MAX_COUNT / 5; i++) {
+	for(i = 0; i < MAX_COUNT; i++) {
 		chg_vol = get_prop_charger_voltage_now(chip);
-		if (chg_vol < (SOFT_AICL_VOL - 50)) {
+		if(chg_vol < SOFT_AICL_VOL) {
 			chip->aicl_current = 100;
-			pr_info("soft aicl s1:%d\n", chg_vol);
 			qpnp_chg_iusbmax_set(chip, 100);
 			return 0;
 		}
 	}
 
 	qpnp_chg_iusbmax_set(chip, 500);
-	for (i = 0; i < MAX_COUNT / 5; i++) {
-		if (!chip->usb_present)
-			goto aicl_err;
+	for(i = 0; i < MAX_COUNT; i++) {
 		chg_vol = get_prop_charger_voltage_now(chip);
-		if (chg_vol < (SOFT_AICL_VOL - 50)) {
-			pr_info("soft aicl s2:%d\n", chg_vol);
+		if(chg_vol < SOFT_AICL_VOL) {
 			qpnp_chg_iusbmax_set(chip, 150);
 			chip->aicl_current = 150;
 			return 0;
@@ -6740,122 +6734,46 @@ static int soft_aicl(struct qpnp_chg_chip *chip)
 	}
 
 	qpnp_chg_iusbmax_set(chip, 900);
-	for (i = 0; i < MAX_COUNT; i++) {
-		if (!chip->usb_present) {
-			qpnp_chg_iusbmax_set(chip, 500);
-			chip->aicl_current = 500;
-			chip->aicl_interrupt = true;
-			return 0;
-		}
+	for(i = 0; i < MAX_COUNT; i++) {
 		chg_vol = get_prop_charger_voltage_now(chip);
-		if (chg_vol < SOFT_AICL_VOL) {
+		if(chg_vol < SOFT_AICL_VOL) {
 			qpnp_chg_iusbmax_set(chip, 500);
-			qpnp_chg_iusbmax_set(chip, 500);//set 2 times
 			chip->aicl_current = 500;
-			if(!chip->usb_present) {
-				chip->aicl_interrupt = true;
-			}
 			return 0;
 		}
 	}
 
-	qpnp_chg_iusbmax_set(chip, 1200);
-	for (i = 0; i < MAX_COUNT; i++) {
-		if (!chip->usb_present) {
-			qpnp_chg_iusbmax_set(chip, 900);
-			chip->aicl_current = 900;
-			chip->aicl_interrupt = true;
-			return 0;
-		}
-		chg_vol = get_prop_charger_voltage_now(chip);
-		if (chg_vol < SOFT_AICL_VOL + 50) {
-			qpnp_chg_iusbmax_set(chip, 900);
-			qpnp_chg_iusbmax_set(chip, 900);//set 2 times
-			chip->aicl_current = 900;
-			qpnp_chg_vinmin_set(chip, chip->min_voltage_mv + 280);///4.68V sjc0401 add for improving current noise (bq24196 hardware bug)
-			if(!chip->usb_present) {
-				chip->aicl_interrupt = true;
-			}
-			return 0;
-		}
-	}
-	
-	qpnp_chg_ibatmax_set(chip, 1216);
 	qpnp_chg_iusbmax_set(chip, 1500);
-	for (i = 0; i < MAX_COUNT + 30; i++) {
-		if (!chip->usb_present) {
-			//goto aicl_err;
-			qpnp_chg_iusbmax_set(chip, 900);
-			chip->aicl_current = 900;
-			chip->aicl_interrupt = true;
-			return 0;
-		}
-		if (i == 20)
-			qpnp_chg_ibatmax_set(chip, 1344);
-		else if (i == 40)
-			qpnp_chg_ibatmax_set(chip, 1536);
-		else if (i == 60)
-			qpnp_chg_ibatmax_set(chip, 1728);
+	for(i = 0; i < MAX_COUNT; i++) {
 		chg_vol = get_prop_charger_voltage_now(chip);
-		if (chg_vol < SOFT_AICL_VOL) {
-			qpnp_chg_iusbmax_set(chip, 900);
+		if(chg_vol < SOFT_AICL_VOL) {
 			qpnp_chg_iusbmax_set(chip, 900);
 			chip->aicl_current = 900;
 			qpnp_chg_vinmin_set(chip, chip->min_voltage_mv + 280);///4.68V sjc0401 add for improving current noise (bq24196 hardware bug)
-			if (!chip->usb_present) {
-				chip->aicl_interrupt = true;
-			}
 			return 0;
 		}
 	}
-	
-	qpnp_chg_ibatmax_set(chip, 1536);
+
 	qpnp_chg_iusbmax_set(chip, 2000);
-	for (i = 0; i < MAX_COUNT + 30; i++) {
-		if (!chip->usb_present) {
-			//goto aicl_err;
-			qpnp_chg_iusbmax_set(chip, 1500);
-			chip->aicl_current = 1500;
-			chip->aicl_interrupt = true;
-			return 0;
-		}
-		if (i == 20)
-			qpnp_chg_ibatmax_set(chip, 1728);
-		else if (i == 40)
-			qpnp_chg_ibatmax_set(chip, 1920);
-		else if (i == 60)
-			qpnp_chg_ibatmax_set(chip, 2112);
+	for(i = 0; i < MAX_COUNT; i++) {
 		chg_vol = get_prop_charger_voltage_now(chip);
-		if (chg_vol < SOFT_AICL_VOL - 30) {
+		if(chg_vol < SOFT_AICL_VOL) {
 #ifdef CONFIG_MACH_MSM8974_14001
-/* OPPO 2014-06-03 sjc Modify for Find7op temp rising problem */
-			qpnp_chg_iusbmax_set(chip, 1200);
 			qpnp_chg_iusbmax_set(chip, 1200);
 #else
-			qpnp_chg_iusbmax_set(chip, 1500);
 			qpnp_chg_iusbmax_set(chip, 1500);
 #endif
 			chip->aicl_current = 1500;
 			qpnp_chg_vinmin_set(chip, chip->min_voltage_mv + 280);///4.68V sjc0401 add for improving current noise (bq24196 hardware bug)
-			if (!chip->usb_present) {
-				chip->aicl_interrupt = true;
-			}
 			return 0;
 		}
 	}
 #ifdef CONFIG_MACH_MSM8974_14001
-/* OPPO 2014-06-03 sjc Modify for Find7op temp rising problem */
-	qpnp_chg_iusbmax_set(chip, 1200);
 	qpnp_chg_iusbmax_set(chip, 1200);
 #else
-	qpnp_chg_iusbmax_set(chip, 1500);
 	qpnp_chg_iusbmax_set(chip, 1500);
 #endif
 	chip->aicl_current = 2000;
-	return 0;
-	
-aicl_err:
-	chip->aicl_current = 0;
 	return 0;
 }
 
