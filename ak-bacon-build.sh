@@ -19,7 +19,7 @@ ANYKERNEL_DIR="$RESOURCE_DIR/AK-OnePlusOne-AnyKernel2"
 
 # Kernel Details
 BASE_AK_VER="AK"
-VER=".023.OP1.CAF"
+VER=".024.OP1.CAF"
 AK_VER="$BASE_AK_VER$VER"
 
 # Vars
