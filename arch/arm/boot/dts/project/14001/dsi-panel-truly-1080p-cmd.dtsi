@@ -87,7 +87,7 @@
 		qcom,mdss-dsi-t-clk-pre = <0x38>;
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
-		qcom,mdss-dsi-reset-sequence = <1 5>, <0 10>, <1 10>;
+		qcom,mdss-dsi-reset-sequence = <1 20>, <0 5>, <1 25>;
 		qcom,cont-splash-enabled;
 		qcom,ulps-enabled;
 	};
