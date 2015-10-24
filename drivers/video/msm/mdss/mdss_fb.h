@@ -237,6 +237,8 @@ struct msm_fb_data_type {
 	struct ion_handle *fb_ion_handle;
 
 	int doze_mode;
+
+	struct delayed_work unblank_bl_work;
 };
 
 static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
