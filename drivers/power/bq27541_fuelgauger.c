@@ -32,21 +32,46 @@
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/machine.h>
 #include <linux/err.h>
-#include <linux/pm.h>
-#ifdef CONFIG_MACH_OPPO
 #include <linux/qpnp-charger.h>
-#else
-#include <linux/msm-charger.h>
-#endif
 #include <linux/i2c/bq27520.h> /* use the same platform data as bq27520 */
-
-#ifdef CONFIG_MACH_OPPO
+#include <linux/of_gpio.h> //sjc0623 add
+#ifdef CONFIG_MACH_MSM8974_14001
+/*OPPO 2013-09-22 liaofuchun add for bq27541 encryption*/
 #include <linux/random.h>
+
 #include <linux/rtc.h>
 
 extern char *BQ27541_HMACSHA1_authenticate(char *Message,char *Key,char *result);
-#endif
+#endif //CONFIG_MACH_MSM8974_14001
 
+#ifdef CONFIG_OPPO_MSM_14021
+/* OPPO 2014-06-23 sjc Add begin for 14021 */
+static int mcu_en_gpio = 0;
+void mcu_en_gpio_set(int value)
+{
+	if (value) {
+		if (gpio_is_valid(mcu_en_gpio))
+			gpio_set_value(mcu_en_gpio, 0);///1);
+	} else {
+		if (gpio_is_valid(mcu_en_gpio)) {
+			gpio_set_value(mcu_en_gpio, 1);
+			usleep_range(10000, 10000);
+			gpio_set_value(mcu_en_gpio, 0);
+		}
+	}
+}
+#else
+void mcu_en_gpio_set(int value)
+{
+	return;
+}
+#endif //CONFIG_OPPO_MSM_14021
+
+extern int load_soc(void);//sjc1121
+extern void backup_soc_ex(int soc); /* yangfangbiao@oneplus.cn, 2015/01/19  Add for  sync with android 4.4  */
+
+
+/* OPPO 2013-12-20 liaofuchun add for fastchg firmware update */
 #ifdef CONFIG_PIC1503_FASTCG
 extern unsigned char Pic16F_firmware_data[];
 extern int pic_fw_ver_count;
@@ -54,6 +79,7 @@ extern int pic_need_to_up_fw;
 extern int pic_have_updated;
 extern int pic16f_fw_update(bool pull96);
 #endif
+/* OPPO 2013-12-20 liaofuchun add end */
 
 #define DRIVER_VERSION			"1.1.0"
 /* Bq27541 standard data commands */
@@ -118,14 +144,23 @@ extern int pic16f_fw_update(bool pull96);
 #define BQ27541_SUBCMD_RESET   0x0041
 #define ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN   (-2731)
 #define BQ27541_INIT_DELAY   ((HZ)*1)
-#ifdef CONFIG_MACH_OPPO
-#define CAPACITY_SALTATE_COUNTER  4
-#define CAPACITY_SALTATE_COUNTER_NOT_CHARGING  20
-#define CAPACITY_SALTATE_COUNTER_80  30
-#define CAPACITY_SALTATE_COUNTER_90  40
-#define CAPACITY_SALTATE_COUNTER_95  60
-#define CAPACITY_SALTATE_COUNTER_FULL  120
+/* OPPO 2013-08-24 wangjc Add begin for filter soc. */
+#ifdef CONFIG_MACH_MSM8974_14001
+#define CAPACITY_SALTATE_COUNTER 4
+#define CAPACITY_SALTATE_COUNTER_NOT_CHARGING	13//40sec
+#ifdef CONFIG_MACH_MSM8974_14001
+/* yangfangbiao@oneplus.cn, 2015/01/06  Add for  sync with KK charge standard  */
+#define CAPACITY_SALTATE_COUNTER_60				20//40	1min
+#define CAPACITY_SALTATE_COUNTER_95				50//60	2.5min
+#define CAPACITY_SALTATE_COUNTER_FULL			100//120	5min
+#define CAPACITY_SALTATE_COUNTER_CHARGING_TERM	20//30	1min
+#endif /*CONFIG_MACH_MSM8974_14001*/
+
+
+#define	SOC_SHUTDOWN_VALID_LIMITS	20 /* yangfangbiao@oneplus.cn, 2015/01/06  Add for  sync with KK charge standard  */
+#define TEN_MINUTES		600
 #endif
+/* OPPO 2013-08-24 wangjc Add end */
 /* If the system has several batteries we need a different name for each
  * of them...
  */
@@ -148,24 +183,28 @@ struct bq27541_device_info {
 	 * and before any successful I2C transaction
 	 */
 	struct  delayed_work		hw_config;
-#ifdef CONFIG_MACH_OPPO
+/* OPPO 2013-08-24 wangjc Add begin for filter soc. */
+#ifdef CONFIG_MACH_MSM8974_14001
+	int cc_pre;
+	int fcc_pre;
 	int soc_pre;
 	int temp_pre;
 	int batt_vol_pre;
 	int current_pre;
 	int saltate_counter;
-	bool is_authenticated;
+	int report_count;
+	bool is_authenticated;	//wangjc add for authentication
 	bool fast_chg_started;
 	bool fast_switch_to_normal;
 	bool fast_normal_to_warm;	//lfc add for fastchg over temp
-	int battery_type;
-	struct power_supply *batt_psy;
+	int battery_type;			//lfc add for battery type
+	struct power_supply		*batt_psy;
 	int irq;
 	struct work_struct fastcg_work;
 
 	bool alow_reading;
 	struct timer_list watchdog;
-	struct wakeup_source fastchg_wakeup_source;
+	struct wake_lock fastchg_wake_lock;
 	bool fast_chg_allow;
 	bool fast_low_temp_full;
 /* jingchun.wang@Onlinerd.Driver, 2014/02/12  Add for retry when config fail */
@@ -174,8 +213,9 @@ struct bq27541_device_info {
 	unsigned long rtc_resume_time;
 	unsigned long rtc_suspend_time;
 	atomic_t suspended;
-	bool fast_chg_ing;
 #endif
+	bool fast_chg_ing;
+/* OPPO 2013-08-24 wangjc Add end */
 };
 
 static int coulomb_counter;
@@ -199,47 +239,83 @@ static int bq27541_battery_temperature(struct bq27541_device_info *di)
 {
 	int ret;
 	int temp = 0;
-
-#ifdef CONFIG_MACH_OPPO
 	static int count = 0;
 
-	if (atomic_read(&di->suspended) == 1) {
+#ifdef CONFIG_MACH_MSM8974_14001
+/* jingchun.wang@Onlinerd.Driver, 2014/02/27  Add for get right soc when sleep long time */
+	if(atomic_read(&di->suspended) == 1) {
 		return di->temp_pre + ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN;
 	}
+#endif /*CONFIG_MACH_MSM8974_14001*/
 
-	if (di->alow_reading == true) {
+	if(di->alow_reading == true) {
 		ret = bq27541_read(BQ27541_REG_TEMP, &temp, 0, di);
+#ifdef CONFIG_MACH_MSM8974_14001
+/* jingchun.wang@Onlinerd.Driver, 2014/01/08  Add for don't report battery not connect when reading error once. */
 		if (ret) {
 			count++;
 			dev_err(di->dev, "error reading temperature\n");
-			if (count > 1) {
+			if(count > 1) {
 				count = 0;
-				di->temp_pre = -400 -
-					ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN;
+				/* jingchun.wang@Onlinerd.Driver, 2014/01/22  Add for it report bad status when plug out battery */
+				di->temp_pre = -400 - ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN;
 				return -400;
 			} else {
-				return di->temp_pre +
-					ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN;
+				return di->temp_pre + ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN;
 			}
 		}
 		count = 0;
+#endif /*CONFIG_MACH_MSM8974_14001*/
 	} else {
-		return di->temp_pre + ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN;
+		return di->temp_pre + ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN;	
 	}
 
 	di->temp_pre = temp;
-#else
-	ret = bq27541_read(BQ27541_REG_TEMP, &temp, 0, di);
-	if (ret) {
-		dev_err(di->dev, "error reading temperature\n");
-		return ret;
-	}
-#endif
 
 	return temp + ZERO_DEGREE_CELSIUS_IN_TENTH_KELVIN;
 }
 
-#ifdef CONFIG_MACH_OPPO
+/* OPPO 2013-08-24 wangjc Add begin for add adc interface. */
+#ifdef CONFIG_MACH_MSM8974_14001
+#define BQ27541_REG_CC		0x2a
+static int bq27541_battery_cc(struct bq27541_device_info *di)/* yangfangbiao@oneplus.cn, 2015/02/13  Add cc interface     */
+{
+	int ret;
+	int cc = 0;
+
+	if (atomic_read(&di->suspended) == 1)
+		return di->cc_pre;
+
+	if (di->alow_reading == true) {
+		ret = bq27541_read(BQ27541_REG_CC, &cc, 0, di);
+		if (ret) {
+			dev_err(di->dev, "error reading cc.\n");
+			return ret;
+		}
+	} else {
+		return di->cc_pre;
+	}
+	
+	di->cc_pre = cc;
+	return cc;
+}
+
+static int bq27541_battery_fcc(struct bq27541_device_info *di)//sjc20150105
+{
+	int ret;
+	int fcc = 0;
+
+	if (di->alow_reading == true) {
+		ret = bq27541_read(BQ27541_REG_FCC, &fcc, 0, di);
+		if (ret) {
+			dev_err(di->dev, "error reading fcc.\n");
+			return ret;
+		}
+	}
+
+	return fcc;
+}
+
 static int bq27541_remaining_capacity(struct bq27541_device_info *di)
 {
 	int ret;
@@ -256,57 +332,124 @@ static int bq27541_remaining_capacity(struct bq27541_device_info *di)
 	return cap;
 }
 
+static int bq27541_battery_voltage(struct bq27541_device_info *di);
+extern int get_charging_status(void);
+extern int fuelgauge_battery_temp_region_get(void);
 static int bq27541_soc_calibrate(struct bq27541_device_info *di, int soc)
 {
 	union power_supply_propval ret = {0,};
 	unsigned int soc_calib;
 	int counter_temp = 0;
-
-	if (!di->batt_psy){
+	static int charging_status = 0;//sjc1121
+	static int charging_status_pre = 0; /* yangfangbiao@oneplus.cn, 2015/01/06  Modify for  sync with KK charge standard  */
+	int soc_load;//sjc1121
+	int soc_temp;
+	
+	if(!di->batt_psy){
 		di->batt_psy = power_supply_get_by_name("battery");
-		di->soc_pre = soc;
-	}
-	if (di->batt_psy) {
-		di->batt_psy->get_property(di->batt_psy,POWER_SUPPLY_PROP_STATUS, &ret);
 
-		if (ret.intval == POWER_SUPPLY_STATUS_CHARGING || ret.intval == POWER_SUPPLY_STATUS_FULL) { // is charging
-			if (abs(soc - di->soc_pre) >= 2) {
+		//get the soc before reboot
+		soc_load = load_soc();
+		if (soc_load == -1) {
+			//get last soc error
+			di->soc_pre = soc;
+		} else if(abs(soc - soc_load) > SOC_SHUTDOWN_VALID_LIMITS) {
+			//the battery maybe changed
+				di->soc_pre = soc;
+			} else {
+			//compare the soc and the last soc
+			if(soc_load > soc) {
+				di->soc_pre = soc_load -1;
+			} else {
+				di->soc_pre = soc_load;
+			}
+		}
+#ifdef CONFIG_MACH_MSM8974_14001
+/* yangfangbiao@oneplus.cn, 2015/02/3  Modify for V2.4 charge standard */
+		if (!di->batt_psy) {
+			return di->soc_pre;
+		}
+#endif /*CONFIG_MACH_MSM8974_14001*/
+		//store the soc when boot first time
+		backup_soc_ex(di->soc_pre);
+	}
+
+	soc_temp  = di->soc_pre;
+
+	if(di->batt_psy){
+		ret.intval = get_charging_status();//sjc20150104
+	
+		if(ret.intval == POWER_SUPPLY_STATUS_CHARGING || ret.intval == POWER_SUPPLY_STATUS_FULL) { // is charging
+			charging_status = 1;
+		} else {
+			charging_status = 0;
+		}
+		if (charging_status ^ charging_status_pre) {
+			charging_status_pre = charging_status;
+			di->saltate_counter = 0;
+		}
+		if (charging_status) { // is charging
+/* yangfangbiao@oneplus.cn, 2015/01/06  Modify begin  for  sync with KK charge standard  */
+			if (ret.intval == POWER_SUPPLY_STATUS_FULL) {
+				soc_calib = di->soc_pre;
+				if (di->soc_pre < 100
+						&& (fuelgauge_battery_temp_region_get() == CV_BATTERY_TEMP_REGION__LITTLE_COOL
+						|| fuelgauge_battery_temp_region_get() == CV_BATTERY_TEMP_REGION__NORMAL)) {//sjc20150104
+					if (di->saltate_counter < CAPACITY_SALTATE_COUNTER_CHARGING_TERM) {
+						di->saltate_counter++;
+					} else {
+						soc_calib = di->soc_pre + 1;
+						di->saltate_counter = 0;
+					}
+				}
+			} else {
+/* yangfangbiao@oneplus.cn, 2015/01/06  Modify end for  sync with KK charge standard  */
+				if(abs(soc - di->soc_pre) > 0) {
 				di->saltate_counter++;
 				if(di->saltate_counter < CAPACITY_SALTATE_COUNTER)
 					return di->soc_pre;
 				else
 					di->saltate_counter = 0;
-			} else
-				di->saltate_counter = 0;
-
-			if (soc > di->soc_pre)
-				soc_calib = di->soc_pre + 1;
-			else if (soc < (di->soc_pre - 2))
-				soc_calib = di->soc_pre - 1;
+			}
 			else
+				di->saltate_counter = 0;
+		
+			if(soc > di->soc_pre) {
+				soc_calib = di->soc_pre + 1;
+			} else if(soc < (di->soc_pre - 2)) {
+				/* jingchun.wang@Onlinerd.Driver, 2013/04/14  Add for allow soc fail when charging. */
+				soc_calib = di->soc_pre - 1;
+			} else {
 				soc_calib = di->soc_pre;
+			}
 			
 			/* jingchun.wang@Onlinerd.Driver, 2013/12/12  Add for set capacity to 100 when full in normal temp */
-			if (ret.intval == POWER_SUPPLY_STATUS_FULL) {
-				if (soc > 94) {
+			if(ret.intval == POWER_SUPPLY_STATUS_FULL) {
+				if(soc > 94) {
 					soc_calib = 100;
 				}
 			}
-		} else {
-			// not charging
-			if ((abs(soc - di->soc_pre) >= 2) || (di->soc_pre > 80)) {
+		}
+		} else { // not charging
+			if ((abs(soc - di->soc_pre) >  0) 
+					|| (di->batt_vol_pre <= 3300 * 1000 && di->batt_vol_pre > 2500 * 1000)) {//sjc1118 add for batt_vol is too low but soc is not jumping
 				di->saltate_counter++;
-				if (di->soc_pre == 100) {
-					counter_temp = CAPACITY_SALTATE_COUNTER_FULL;//6
+				if(di->soc_pre == 100) {
+					counter_temp = CAPACITY_SALTATE_COUNTER_FULL;//t>=5min
 				} else if (di->soc_pre > 95) {
-					counter_temp = CAPACITY_SALTATE_COUNTER_95;//3
-				} else if (di->soc_pre > 90) {
-					counter_temp = CAPACITY_SALTATE_COUNTER_90;//2
-				} else if (di->soc_pre > 80) {
-					counter_temp = CAPACITY_SALTATE_COUNTER_80;//1.5
+					counter_temp = CAPACITY_SALTATE_COUNTER_95;///t>=2.5min
+				} else if (di->soc_pre > 60) {
+					counter_temp = CAPACITY_SALTATE_COUNTER_60;//t>=1min
 				} else {
-					counter_temp = CAPACITY_SALTATE_COUNTER_NOT_CHARGING;//1
+					counter_temp = CAPACITY_SALTATE_COUNTER_NOT_CHARGING;//t>=40sec
 				}
+				/* sjc1020, when batt_vol is too low(and soc is jumping), decrease faster to avoid dead battery shutdown */
+				if (di->batt_vol_pre <= 3300 * 1000 && di->batt_vol_pre > 2500 * 1000 && di->soc_pre <= 10) {
+					if (bq27541_battery_voltage(di) <= 3300 * 1000 && bq27541_battery_voltage(di) > 2500 * 1000) {//check again
+						counter_temp = CAPACITY_SALTATE_COUNTER - 1;//about 9s
+					}
+				}
+				
 				if(di->saltate_counter < counter_temp)
 					return di->soc_pre;
 				else
@@ -314,8 +457,10 @@ static int bq27541_soc_calibrate(struct bq27541_device_info *di, int soc)
 			}
 			else
 				di->saltate_counter = 0;
-
-			if (soc < di->soc_pre)
+			
+			if(soc < di->soc_pre)
+				soc_calib = di->soc_pre - 1;
+			else if (di->batt_vol_pre <= 3300 * 1000 && di->batt_vol_pre > 2500 * 1000 && di->soc_pre > 0)//sjc1118 add for batt_vol is too low but soc is not jumping
 				soc_calib = di->soc_pre - 1;
 			else
 				soc_calib = di->soc_pre;
@@ -323,9 +468,15 @@ static int bq27541_soc_calibrate(struct bq27541_device_info *di, int soc)
 	} else {
 		soc_calib = soc;
 	}
-	if (soc >= 100)
+	if(soc_calib > 100)
 		soc_calib = 100;
 	di->soc_pre = soc_calib;
+
+	if(soc_temp  !=  soc_calib) {
+		//store when soc changed
+		backup_soc_ex(soc_calib);
+		pr_info("soc:%d, soc_calib:%d\n", soc, soc_calib);
+	}
 	return soc_calib;
 }
 
@@ -334,11 +485,14 @@ static int bq27541_battery_soc(struct bq27541_device_info *di, bool raw)
 	int ret;
 	int soc = 0;
 
-	if (atomic_read(&di->suspended) == 1) {
+#ifdef CONFIG_MACH_MSM8974_14001
+/* jingchun.wang@Onlinerd.Driver, 2014/02/27  Add for get right soc when sleep long time */
+	if(atomic_read(&di->suspended) == 1) {
 		return di->soc_pre;
 	}
+#endif /*CONFIG_MACH_MSM8974_14001*/
 
-	if (di->alow_reading == true) {
+	if(di->alow_reading == true) {
 		ret = bq27541_read(BQ27541_REG_SOC, &soc, 0, di);
 		if (ret) {
 			dev_err(di->dev, "error reading soc.ret:%d\n",ret);
@@ -362,9 +516,9 @@ static int bq27541_battery_soc(struct bq27541_device_info *di, bool raw)
 
 	soc = bq27541_soc_calibrate(di,soc);
 	return soc;
-
+	
 read_soc_err:
-	if (di->soc_pre)
+	if(di->soc_pre)
 		return di->soc_pre;
 	else
 		return 0;
@@ -375,11 +529,14 @@ static int bq27541_average_current(struct bq27541_device_info *di)
 	int ret;
 	int curr = 0;
 
-	if (atomic_read(&di->suspended) == 1) {
+#ifdef CONFIG_MACH_MSM8974_14001
+/* jingchun.wang@Onlinerd.Driver, 2014/02/27  Add for get right soc when sleep long time */
+	if(atomic_read(&di->suspended) == 1) {
 		return -di->current_pre;
 	}
+#endif /*CONFIG_MACH_MSM8974_14001*/
 
-	if (di->alow_reading == true) {
+	if(di->alow_reading == true) {
 		ret = bq27541_read(BQ27541_REG_AI, &curr, 0, di);
 		if (ret) {
 			dev_err(di->dev, "error reading current.\n");
@@ -389,13 +546,13 @@ static int bq27541_average_current(struct bq27541_device_info *di)
 		return -di->current_pre;
 	}
 	// negative current
-	if (curr & 0x8000)
-		curr = -((~(curr - 1)) & 0xFFFF);
+	if(curr&0x8000)
+		curr = -((~(curr-1))&0xFFFF);
 	di->current_pre = curr;
-
 	return -curr;
 }
 #endif
+/* OPPO 2013-08-24 wangjc Add end */
 
 /*
  * Return the battery Voltage in milivolts
@@ -406,28 +563,24 @@ static int bq27541_battery_voltage(struct bq27541_device_info *di)
 	int ret;
 	int volt = 0;
 
-#ifdef CONFIG_MACH_OPPO
-	if (atomic_read(&di->suspended) == 1) {
+#ifdef CONFIG_MACH_MSM8974_14001
+/* jingchun.wang@Onlinerd.Driver, 2014/02/27  Add for get right soc when sleep long time */
+	if(atomic_read(&di->suspended) == 1) {
 		return di->batt_vol_pre;
 	}
+#endif /*CONFIG_MACH_MSM8974_14001*/
 
-	if (di->alow_reading) {
+	if(di->alow_reading == true) {
 		ret = bq27541_read(BQ27541_REG_VOLT, &volt, 0, di);
 		if (ret) {
-			dev_err(di->dev, "error reading voltage,ret:%d\n", ret);
+			dev_err(di->dev, "error reading voltage,ret:%d\n",ret);
 			return ret;
 		}
 	} else {
 		return di->batt_vol_pre;
 	}
+
 	di->batt_vol_pre = volt * 1000;
-#else
-	ret = bq27541_read(BQ27541_REG_VOLT, &volt, 0, di);
-	if (ret) {
-		dev_err(di->dev, "error reading voltage\n");
-		return ret;
-	}
-#endif
 
 	return volt * 1000;
 }
@@ -535,6 +688,7 @@ static void bq27541_coulomb_counter_work(struct work_struct *work)
 	}
 }
 
+
 static int bq27541_get_battery_mvolts(void)
 {
 	return bq27541_battery_voltage(bq27541_di);
@@ -557,7 +711,18 @@ static int bq27541_is_battery_id_valid(void)
 	return 1;
 }
 
-#ifdef CONFIG_MACH_OPPO
+/* OPPO 2013-08-24 wangjc Add begin for add adc interface. */
+#ifdef CONFIG_MACH_MSM8974_14001
+static int bq27541_get_batt_cc(void)/* yangfangbiao@oneplus.cn, 2015/02/13  Add cc interface     */
+{
+	return bq27541_battery_cc(bq27541_di);
+}
+
+static int bq27541_get_batt_fcc(void)//sjc20150105
+{
+	return bq27541_battery_fcc(bq27541_di);
+}
+
 static int bq27541_get_batt_remaining_capacity(void)
 {
 	return bq27541_remaining_capacity(bq27541_di);
@@ -568,14 +733,16 @@ static int bq27541_get_battery_soc(void)
 	return bq27541_battery_soc(bq27541_di, false);
 }
 
+
 static int bq27541_get_average_current(void)
 {
 	return bq27541_average_current(bq27541_di);
 }
 
+//wangjc add for authentication
 static int bq27541_is_battery_authenticated(void)
 {
-	if (bq27541_di) {
+	if(bq27541_di) {
 		return bq27541_di->is_authenticated;
 	}
 	return false;
@@ -583,7 +750,7 @@ static int bq27541_is_battery_authenticated(void)
 
 static int bq27541_fast_chg_started(void)
 {
-	if (bq27541_di) {
+	if(bq27541_di) {
 		return bq27541_di->fast_chg_started;
 	}
 	return false;
@@ -591,7 +758,8 @@ static int bq27541_fast_chg_started(void)
 
 static int bq27541_fast_switch_to_normal(void)
 {
-	if (bq27541_di) {
+	if(bq27541_di) {
+		//pr_err("%s fast_switch_to_normal:%d\n",__func__,bq27541_di->fast_switch_to_normal);
 		return bq27541_di->fast_switch_to_normal;
 	}
 	return false;
@@ -599,7 +767,7 @@ static int bq27541_fast_switch_to_normal(void)
 
 static int bq27541_set_switch_to_noraml_false(void)
 {
-	if (bq27541_di) {
+	if(bq27541_di) {
 		bq27541_di->fast_switch_to_normal = false;
 	}
 
@@ -621,10 +789,15 @@ static int bq27541_set_fast_low_temp_full_false(void)
 	}
 	return 0;
 }
+#endif
+/* OPPO 2013-08-24 wangjc Add end */
+
+/* OPPO 2013-12-12 liaofuchun add for set/get fastchg allow begin*/
 
 static int bq27541_fast_normal_to_warm(void)
 {
-	if (bq27541_di) {
+	if(bq27541_di) {
+		//pr_err("%s fast_switch_to_normal:%d\n",__func__,bq27541_di->fast_switch_to_normal);
 		return bq27541_di->fast_normal_to_warm;
 	}
 	return 0;
@@ -632,15 +805,16 @@ static int bq27541_fast_normal_to_warm(void)
 
 static int bq27541_set_fast_normal_to_warm_false(void)
 {
-	if (bq27541_di) {
+	if(bq27541_di) {
 		bq27541_di->fast_normal_to_warm = false;
 	}
+
 	return 0;
 }
 
 static int bq27541_set_fast_chg_allow(int enable)
 {
-	if (bq27541_di) {
+	if(bq27541_di) {
 		bq27541_di->fast_chg_allow = enable;
 	}
 	return 0;
@@ -648,7 +822,7 @@ static int bq27541_set_fast_chg_allow(int enable)
 
 static int bq27541_get_fast_chg_allow(void)
 {
-	if (bq27541_di) {
+	if(bq27541_di) {
 		return bq27541_di->fast_chg_allow;
 	}
 	return 0;
@@ -656,50 +830,45 @@ static int bq27541_get_fast_chg_allow(void)
 
 static int bq27541_get_fast_chg_ing(void)
 {
-	if (bq27541_di) {
-		return bq27541_di->fast_chg_ing;
-	}
+	if(bq27541_di) {
+			return bq27541_di->fast_chg_ing;
+		}
 	return 0;
 }
 
-#endif
+/* OPPO 2013-12-12 liaofuchun add for set/get fastchg allow end */
 
-#ifdef CONFIG_MACH_OPPO
 static struct qpnp_battery_gauge bq27541_batt_gauge = {
 	.get_battery_mvolts		= bq27541_get_battery_mvolts,
 	.get_battery_temperature	= bq27541_get_battery_temperature,
 	.is_battery_present		= bq27541_is_battery_present,
 	.is_battery_temp_within_range	= bq27541_is_battery_temp_within_range,
 	.is_battery_id_valid		= bq27541_is_battery_id_valid,
-	.get_batt_remaining_capacity	= bq27541_get_batt_remaining_capacity,
-	.get_battery_soc		= bq27541_get_battery_soc,
+/* OPPO 2013-09-30 wangjc Add begin for add new interface */
+#ifdef CONFIG_MACH_MSM8974_14001
+	.get_batt_cc				= bq27541_get_batt_cc, /* yangfangbiao@oneplus.cn, 2015/02/13  Add cc interface     */
+	.get_batt_fcc				= bq27541_get_batt_fcc, /* yangfangbiao@oneplus.cn, 2015/01/06  Add for  sync with KK charge standard  */
+	.get_batt_remaining_capacity = bq27541_get_batt_remaining_capacity,
+	.get_battery_soc			= bq27541_get_battery_soc,
 	.get_average_current		= bq27541_get_average_current,
+	//wangjc add for authentication
 	.is_battery_authenticated	= bq27541_is_battery_authenticated,
-	.fast_chg_started		= bq27541_fast_chg_started,
+	.fast_chg_started			= bq27541_fast_chg_started,
 	.fast_switch_to_normal		= bq27541_fast_switch_to_normal,
 	.set_switch_to_noraml_false	= bq27541_set_switch_to_noraml_false,
-	.set_fast_chg_allow		= bq27541_set_fast_chg_allow,
-	.get_fast_chg_allow		= bq27541_get_fast_chg_allow,
+	.set_fast_chg_allow			= bq27541_set_fast_chg_allow,
+	.get_fast_chg_allow			= bq27541_get_fast_chg_allow,
 	.fast_normal_to_warm		= bq27541_fast_normal_to_warm,
 	.set_normal_to_warm_false	= bq27541_set_fast_normal_to_warm_false,
-	.get_fast_chg_ing		= bq27541_get_fast_chg_ing,
+	.get_fast_chg_ing			= bq27541_get_fast_chg_ing,
 	.get_fast_low_temp_full		= bq27541_get_fast_low_temp_full,
 	.set_low_temp_full_false	= bq27541_set_fast_low_temp_full_false,
-};
-#else
-static struct msm_battery_gauge bq27541_batt_gauge = {
-	.get_battery_mvolts		= bq27541_get_battery_mvolts,
-	.get_battery_temperature	= bq27541_get_battery_temperature,
-	.is_battery_present		= bq27541_is_battery_present,
-	.is_battery_temp_within_range	= bq27541_is_battery_temp_within_range,
-	.is_battery_id_valid		= bq27541_is_battery_id_valid,
-};
 #endif
+/* OPPO 2013-09-30 wangjc Add end */
+};
 
-#ifdef CONFIG_MACH_OPPO
 static bool bq27541_authenticate(struct i2c_client *client);
 static int bq27541_batt_type_detect(struct i2c_client *client);
-#endif
 
 static void bq27541_hw_config(struct work_struct *work)
 {
@@ -710,19 +879,16 @@ static void bq27541_hw_config(struct work_struct *work)
 	ret = bq27541_chip_config(di);
 	if (ret) {
 		dev_err(di->dev, "Failed to config Bq27541\n");
-#ifdef CONFIG_MACH_OPPO
+#ifdef CONFIG_MACH_MSM8974_14001
+/* jingchun.wang@Onlinerd.Driver, 2014/02/12  Add for retry when config fail */
 		di->retry_count--;
-		if (di->retry_count > 0) {
+		if(di->retry_count > 0) {
 			schedule_delayed_work(&di->hw_config, HZ);
 		}
-#endif
+#endif /*CONFIG_MACH_MSM8974_14001*/
 		return;
 	}
-#ifdef CONFIG_MACH_OPPO
 	qpnp_battery_gauge_register(&bq27541_batt_gauge);
-#else
-	msm_battery_gauge_register(&bq27541_batt_gauge);
-#endif
 
 	bq27541_cntl_cmd(di, BQ27541_SUBCMD_CTNL_STATUS);
 	udelay(66);
@@ -734,10 +900,11 @@ static void bq27541_hw_config(struct work_struct *work)
 	udelay(66);
 	bq27541_read(BQ27541_REG_CNTL, &fw_ver, 0, di);
 
-#ifdef CONFIG_MACH_OPPO
+#ifdef CONFIG_MACH_MSM8974_14001
+/*OPPO 2013-09-18 liaofuchun add begin for check authenticate data*/
 	di->is_authenticated = bq27541_authenticate(di->client);
 	di->battery_type = bq27541_batt_type_detect(di->client);
-#endif
+#endif //CONFIG_MACH_MSM8974_14001
 
 	dev_info(di->dev, "DEVICE_TYPE is 0x%02X, FIRMWARE_VERSION is 0x%02X\n",
 			type, fw_ver);
@@ -748,49 +915,26 @@ static int bq27541_read_i2c(u8 reg, int *rt_value, int b_single,
 			struct bq27541_device_info *di)
 {
 	struct i2c_client *client = di->client;
-#ifdef CONFIG_MACH_OPPO
-	struct i2c_msg msg[2];
-#else
+/* OPPO 2013-12-09 wangjc Modify begin for use standard i2c interface */
+#ifndef CONFIG_MACH_MSM8974_14001
 	struct i2c_msg msg[1];
+#else
+	struct i2c_msg msg[2];
 #endif
+/* OPPO 2013-12-09 wangjc Modify end */
 	unsigned char data[2];
 	int err;
 
 	if (!client->adapter)
 		return -ENODEV;
-
-#ifdef CONFIG_MACH_OPPO
+/* OPPO 2013-09-30 wangjc Add begin for eliminate conflict */
+#ifdef CONFIG_MACH_MSM8974_14001
 	mutex_lock(&battery_mutex);
+#endif
+/* OPPO 2013-09-30 wangjc Add end */
 
-	msg[0].addr = client->addr;
-	msg[0].flags = 0;
-	msg[0].len = 1;
-	msg[0].buf = data;
-
-	data[0] = reg;
-
-	msg[1].addr = client->addr;
-	msg[1].flags = I2C_M_RD;
-	if (!b_single)
-		msg[1].len = 2;
-	else
-		msg[1].len = 1;
-	msg[1].buf = data;
-
-	err = i2c_transfer(client->adapter, msg, 2);
-	if (err >= 0) {
-		if (!b_single)
-			*rt_value = get_unaligned_le16(data);
-		else
-			*rt_value = data[0];
-
-		mutex_unlock(&battery_mutex);
-
-		return 0;
-	}
-	mutex_unlock(&battery_mutex);
-	return err;
-#else
+/* OPPO 2013-12-09 wangjc Modify begin for use standard i2c interface */
+#ifndef CONFIG_MACH_MSM8974_14001
 	msg->addr = client->addr;
 	msg->flags = 0;
 	msg->len = 1;
@@ -813,11 +957,48 @@ static int bq27541_read_i2c(u8 reg, int *rt_value, int b_single,
 			else
 				*rt_value = data[0];
 
+			mutex_unlock(&battery_mutex);
+
 			return 0;
 		}
 	}
-	return err;
+#else	
+	/* Write register */
+	msg[0].addr = client->addr;
+	msg[0].flags = 0;
+	msg[0].len = 1;
+	msg[0].buf = data;
+
+	data[0] = reg;
+
+	/* Read data */
+	msg[1].addr = client->addr;
+	msg[1].flags = I2C_M_RD;
+	if (!b_single)
+		msg[1].len = 2;
+	else
+		msg[1].len = 1;
+	msg[1].buf = data;
+
+	err = i2c_transfer(client->adapter, msg, 2);
+	if (err >= 0) {
+		if (!b_single)
+			*rt_value = get_unaligned_le16(data);
+		else
+			*rt_value = data[0];
+
+		mutex_unlock(&battery_mutex);
+
+		return 0;
+	}
 #endif
+/* OPPO 2013-12-09 wangjc Modify end */
+/* OPPO 2013-09-30 wangjc Add begin for eliminate conflict */
+#ifdef CONFIG_MACH_MSM8974_14001
+	mutex_unlock(&battery_mutex);
+#endif
+/* OPPO 2013-09-30 wangjc Add end */
+	return err;
 }
 
 #ifdef CONFIG_BQ27541_TEST_ENABLE
@@ -918,19 +1099,24 @@ static struct platform_device this_device = {
 };
 #endif
 
-#ifdef CONFIG_MACH_OPPO
+#ifdef CONFIG_MACH_MSM8974_14001
+/*OPPO 2013-09-18 liaofuchun add begin for bq27541 authenticate */
 #define BLOCKDATACTRL	0X61
 #define DATAFLASHBLOCK	0X3F
-#define AUTHENDATA	0X40
+#define AUTHENDATA		0X40
 #define AUTHENCHECKSUM	0X54
-#define MESSAGE_LEN	20
-#define KEY_LEN		16
+#define MESSAGE_LEN		20
+#define KEY_LEN			16
 
+/* OPPO 2014-02-25 sjc Modify begin for FIND7OP not use authenticate */
+#if defined (CONFIG_MACH_MSM8974_14001) || defined (CONFIG_OPPO_MSM_14021)
 static bool bq27541_authenticate(struct i2c_client *client)
 {
-#ifdef CONFIG_MACH_MSM8974_14001
 	return true;
+}
 #else
+static bool bq27541_authenticate(struct i2c_client *client)
+{
 	char recv_buf[MESSAGE_LEN]={0x0};
 	char send_buf[MESSAGE_LEN]={0x0};
 	char result[MESSAGE_LEN]={0x0};
@@ -979,15 +1165,23 @@ static bool bq27541_authenticate(struct i2c_client *client)
 		pr_info("send_buf[%d]:0x%x,recv_buf[%d]:0x%x ?= result[%d]:0x%x\n",i,send_buf[i],i,recv_buf[i],i,result[i]);
 	}
 	return false;
-#endif
 }
+#endif //CONFIG_MACH_MSM8974_14001
+/* OPPO 2014-02-25 sjc Modify end */
+#endif //CONFIG_MACH_MSM8974_14001
 
+#ifdef CONFIG_MACH_MSM8974_14001
 //Fuchun.Liao@EXP.Driver,2014/01/10 add for check battery type
 #define BATTERY_2700MA		0
 #define BATTERY_3000MA		1
 #define TYPE_INFO_LEN		8
 
-#ifndef CONFIG_MACH_MSM8974_14001
+#if defined (CONFIG_MACH_MSM8974_14001) || defined (CONFIG_OPPO_MSM_14021)
+static int bq27541_batt_type_detect(struct i2c_client *client)
+{
+	return BATTERY_3000MA;
+}
+#else //defined (CONFIG_MACH_MSM8974_14001) || defined (CONFIG_OPPO_MSM_14021)
 /* jingchun.wang@Onlinerd.Driver, 2014/03/10  Modify for 14001 */
 static int bq27541_batt_type_detect(struct i2c_client *client)
 {
@@ -1015,13 +1209,8 @@ static int bq27541_batt_type_detect(struct i2c_client *client)
 	pr_info("%s battery_type:%d\n",__func__,rc);
 	return rc;
 }
-#else /*CONFIG_MACH_MSM8974_14001*/
-static int bq27541_batt_type_detect(struct i2c_client *client)
-{
-	return BATTERY_3000MA;
-}
-#endif /*CONFIG_MACH_MSM8974_14001*/
-#endif
+#endif //defined (CONFIG_MACH_MSM8974_14001) || defined (CONFIG_OPPO_MSM_14021)
+#endif //CONFIG_MACH_MSM8974_14001
 
 /* OPPO 2013-12-12 liaofuchun add for fastchg */
 #ifdef CONFIG_PIC1503_FASTCG
@@ -1038,6 +1227,7 @@ static irqreturn_t irq_rx_handler(int irq, void *dev_id)
 }
 
 #define AP_SWITCH_USB	GPIO_CFG(96, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA)
+
 static void fastcg_work_func(struct work_struct *work)
 {
 	int data = 0;
@@ -1063,9 +1253,8 @@ static void fastcg_work_func(struct work_struct *work)
 		gpio_tlmm_config(AP_TX_DIS, GPIO_CFG_ENABLE);
 		usleep_range(19000,19000);
 		bit = gpio_get_value(1);
-		data |= bit<<(6-i);
-		if((i == 2) && (data != 0x50) && (!fw_ver_info)){
-			//data recvd not start from "101"
+		data |= bit<<(6-i);	
+		if((i == 2) && (data != 0x50) && (!fw_ver_info)){	//data recvd not start from "101"
 			pr_err("%s data err:%d\n",__func__,data);
 			if(bq27541_di->fast_chg_started == true) {
 				bq27541_di->alow_reading = true;
@@ -1075,6 +1264,7 @@ static void fastcg_work_func(struct work_struct *work)
 				bq27541_di->fast_normal_to_warm = false;
 				bq27541_di->fast_chg_ing = false;
 				gpio_set_value(96, 0);
+				mcu_en_gpio_set(1);//sjc0623 add
 				retval = gpio_tlmm_config(AP_SWITCH_USB, GPIO_CFG_ENABLE);
 				if (retval) {
 					pr_err("%s switch usb error %d\n", __func__, retval);
@@ -1086,10 +1276,22 @@ static void fastcg_work_func(struct work_struct *work)
 	}
 
 	pr_err("%s recv data:0x%x\n", __func__, data);
-
+	
+	//lfc add for power_supply_changed NULL pointer when batt_psy unregistered
+	if(bq27541_di->batt_psy == NULL){
+		msleep(2);
+		gpio_tlmm_config(GPIO_CFG(1,0,GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),1);
+		gpio_direction_output(1, 0);
+		retval = request_irq(bq27541_di->irq, irq_rx_handler, IRQF_TRIGGER_RISING, "mcu_data", bq27541_di);	//0X01:rising edge,0x02:falling edge
+		if(retval < 0)
+			pr_err("%s request ap rx irq failed.\n", __func__);
+			
+		return ;
+	}
+		
 	if(data == 0x52) {
 		//request fast charging
-		__pm_stay_awake(&bq27541_di->fastchg_wakeup_source);
+		wake_lock(&bq27541_di->fastchg_wake_lock);
 		pic_need_to_up_fw = 0;
 		fw_ver_info = 0;
 		bq27541_di->alow_reading = false;
@@ -1117,6 +1319,7 @@ static void fastcg_work_func(struct work_struct *work)
 		pr_info("%s fastchg stop unexpectly,switch off fastchg\n", __func__);
 		
 		gpio_set_value(96, 0);
+		mcu_en_gpio_set(1);//sjc0623 add
 		retval = gpio_tlmm_config(AP_SWITCH_USB, GPIO_CFG_ENABLE);
 		if (retval) {
 			pr_err("%s switch usb error %d\n", __func__, retval);
@@ -1134,7 +1337,8 @@ static void fastcg_work_func(struct work_struct *work)
 		soc = bq27541_get_battery_soc();
 		current_now = bq27541_get_average_current();
 		pr_err("%s volt:%d,temp:%d,remain_cap:%d,soc:%d,current:%d\n",__func__,volt,temp,
-			remain_cap,soc,current_now);
+			remain_cap,soc,current_now);	
+		
 		//don't read
 		bq27541_di->alow_reading = false;
 		mod_timer(&bq27541_di->watchdog,
@@ -1151,6 +1355,7 @@ static void fastcg_work_func(struct work_struct *work)
 		//switch off fast chg
 		pr_info("%s fastchg full,switch off fastchg,set GPIO96 0\n", __func__);
 		gpio_set_value(96, 0);
+		mcu_en_gpio_set(1);//sjc0623 add
 		retval = gpio_tlmm_config(AP_SWITCH_USB, GPIO_CFG_ENABLE);
 		if (retval) {
 			pr_err("%s switch usb error %d\n", __func__, retval);
@@ -1163,6 +1368,7 @@ static void fastcg_work_func(struct work_struct *work)
 			//switch off fast chg
 			pr_info("%s fastchg low temp full,switch off fastchg,set GPIO96 0\n", __func__);
 			gpio_set_value(96, 0);
+			mcu_en_gpio_set(1);//sjc0623 add
 			retval = gpio_tlmm_config(AP_SWITCH_USB, GPIO_CFG_ENABLE);
 			if (retval) {
 				pr_err("%s switch usb error %d\n", __func__, retval);
@@ -1172,7 +1378,7 @@ static void fastcg_work_func(struct work_struct *work)
 		ret_info = 0x2;
 	} else if(data == 0x59){
 		//usb bad connected,stop fastchg
-#if 0  //lfc modify for it(set fast_switch_to_normal ture) is earlier than usb_plugged_out irq(set it false)
+#if 0	//lfc modify for it(set fast_switch_to_normal ture) is earlier than usb_plugged_out irq(set it false)
 		bq27541_di->alow_reading = true;
 		bq27541_di->fast_chg_started = false;
 		bq27541_di->fast_chg_allow = false;
@@ -1181,6 +1387,7 @@ static void fastcg_work_func(struct work_struct *work)
 		//switch off fast chg
 		pr_info("%s usb bad connect,switch off fastchg\n", __func__);
 		gpio_set_value(96, 0);
+		mcu_en_gpio_set(1);//sjc0623 add
 		retval = gpio_tlmm_config(AP_SWITCH_USB, GPIO_CFG_ENABLE);
 		if (retval) {
 			pr_err("%s switch usb error %d\n", __func__, retval);
@@ -1191,6 +1398,7 @@ static void fastcg_work_func(struct work_struct *work)
 		//fastchg temp over 45 or under 20
 		pr_info("%s fastchg temp > 45 or < 20,switch off fastchg,set GPIO96 0\n", __func__);
 		gpio_set_value(96, 0);
+		mcu_en_gpio_set(1);//sjc0623 add
 		retval = gpio_tlmm_config(AP_SWITCH_USB, GPIO_CFG_ENABLE);
 		if (retval) {
 			pr_err("%s switch usb error %d\n", __func__, retval);
@@ -1215,6 +1423,7 @@ static void fastcg_work_func(struct work_struct *work)
 		fw_ver_info = 0;
 	} else {
 		gpio_set_value(96, 0);
+		mcu_en_gpio_set(1);//sjc0623 add
 		retval = gpio_tlmm_config(AP_SWITCH_USB, GPIO_CFG_ENABLE);
 		if (retval) {
 			pr_err("%s data err(101xxxx) switch usb error %d\n", __func__, retval);
@@ -1312,16 +1521,14 @@ out:
 	if(data == 0x53){
 		if(bq27541_di->battery_type == BATTERY_3000MA){
 			power_supply_changed(bq27541_di->batt_psy);
-			__pm_relax(&bq27541_di->fastchg_wakeup_source);
+			wake_unlock(&bq27541_di->fastchg_wake_lock);
 		}
 	}
 		
 	if((data == 0x54) || (data == 0x5a) || (data == 0x59) || (data == 0x5c)){
 		power_supply_changed(bq27541_di->batt_psy);
-		__pm_relax(&bq27541_di->fastchg_wakeup_source);
+		wake_unlock(&bq27541_di->fastchg_wake_lock);
 	}
-	
-	
 }
 
 void di_watchdog(unsigned long data)
@@ -1341,18 +1548,17 @@ void di_watchdog(unsigned long data)
 	pr_info("%s switch off fastchg\n", __func__);
 
 	gpio_set_value(96, 0);
+	mcu_en_gpio_set(1);//sjc0623 add
 	ret = gpio_tlmm_config(AP_SWITCH_USB, GPIO_CFG_ENABLE);
 	if (ret) {
 		pr_info("%s switch usb error %d\n", __func__, ret);
 	}
-	__pm_relax(&bq27541_di->fastchg_wakeup_source);
+	wake_unlock(&bq27541_di->fastchg_wake_lock);
 }
+#endif
 /* OPPO 2013-12-12 liaofuchun add for fastchg */
-#endif
 
-#ifdef CONFIG_MACH_OPPO
 #define MAX_RETRY_COUNT	5
-#endif
 
 static int bq27541_battery_probe(struct i2c_client *client,
 				 const struct i2c_device_id *id)
@@ -1362,6 +1568,29 @@ static int bq27541_battery_probe(struct i2c_client *client,
 	struct bq27541_access_methods *bus;
 	int num;
 	int retval = 0;
+	
+#ifdef CONFIG_OPPO_MSM_14021
+/* OPPO 2014-06-23 sjc Add begin for 14021 */
+	struct device_node *dev_node = client->dev.of_node;
+	int ret;
+
+	if (dev_node) {
+		mcu_en_gpio = of_get_named_gpio(dev_node, "microchip,mcu-en-gpio", 0);
+	} else {
+		mcu_en_gpio = 0;
+		printk(KERN_ERR "%s: mcu_en_gpio failed\n", __func__);
+	}
+	if (gpio_is_valid(mcu_en_gpio)) {
+		ret = gpio_request(mcu_en_gpio, "mcu_en_gpio");
+		if (ret) {
+			printk(KERN_ERR "%s: gpio_request failed for %d ret=%d\n", __func__, mcu_en_gpio, ret);
+		} else {
+			gpio_set_value(mcu_en_gpio, 0);
+		}
+	}
+#endif //CONFIG_OPPO_MSM_14021
+
+	pr_info("%s\n", __func__);
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
 		return -ENODEV;
@@ -1404,14 +1633,20 @@ static int bq27541_battery_probe(struct i2c_client *client,
 	bus->read = &bq27541_read_i2c;
 	di->bus = bus;
 	di->client = client;
-#ifdef CONFIG_MACH_OPPO
+/* OPPO 2013-08-19 wangjc Add begin for error temp */
+#ifdef CONFIG_MACH_MSM8974_14001
 	di->temp_pre = 0;
+#endif
+/* OPPO 2013-08-19 wangjc Add end */
 	di->alow_reading = true;
 	di->fast_chg_ing = false;
 	di->fast_low_temp_full = false;
+#ifdef CONFIG_MACH_MSM8974_14001
+/* jingchun.wang@Onlinerd.Driver, 2014/02/12  Add for retry when config fail */
 	di->retry_count = MAX_RETRY_COUNT;
 	atomic_set(&di->suspended, 0);
-#endif
+
+#endif /*CONFIG_MACH_MSM8974_14001*/
 
 #ifdef CONFIG_BQ27541_TEST_ENABLE
 	platform_set_drvdata(&this_device, di);
@@ -1440,27 +1675,26 @@ static int bq27541_battery_probe(struct i2c_client *client,
 	bq27541_di = di;
 	INIT_WORK(&di->counter, bq27541_coulomb_counter_work);
 	INIT_DELAYED_WORK(&di->hw_config, bq27541_hw_config);
-#ifdef CONFIG_MACH_OPPO
 	schedule_delayed_work(&di->hw_config, 0);
-#ifdef CONFIG_PIC1503_FASTCG
+	
+	/* OPPO 2013-12-22 wangjc add for fastchg*/
+	#ifdef CONFIG_PIC1503_FASTCG
 	init_timer(&di->watchdog);
 	di->watchdog.data = (unsigned long)di;
 	di->watchdog.function = di_watchdog;
-	wakeup_source_init(&di->fastchg_wakeup_source, "fastcg_wakeup_source");
+	wake_lock_init(&di->fastchg_wake_lock,		
+		WAKE_LOCK_SUSPEND, "fastcg_wake_lock");
 	INIT_WORK(&di->fastcg_work,fastcg_work_func);
 	gpio_request(1, "mcu_clk");
 	gpio_tlmm_config(GPIO_CFG(1,0,GPIO_CFG_INPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),1);
 	gpio_direction_input(1);
 	di->irq = gpio_to_irq(1);
-	retval = request_irq(di->irq, irq_rx_handler, IRQF_TRIGGER_RISING, "mcu_data", di);
-	//0X01:rising edge,0x02:falling edge
-	if (retval < 0) {
+	retval = request_irq(di->irq, irq_rx_handler, IRQF_TRIGGER_RISING, "mcu_data", di);	//0X01:rising edge,0x02:falling edge
+	if(retval < 0) {
 		pr_err("%s request ap rx irq failed.\n", __func__);
 	}
-#endif
-#else
-	schedule_delayed_work(&di->hw_config, BQ27541_INIT_DELAY);
-#endif
+	#endif
+	/* OPPO 2013-12-22 wangjc add end*/
 	return 0;
 
 batt_failed_4:
@@ -1480,12 +1714,14 @@ batt_failed_1:
 static int bq27541_battery_remove(struct i2c_client *client)
 {
 	struct bq27541_device_info *di = i2c_get_clientdata(client);
-
-#ifdef CONFIG_MACH_OPPO
-	qpnp_battery_gauge_unregister(&bq27541_batt_gauge);
-#else
-	msm_battery_gauge_unregister(&bq27541_batt_gauge);
+	
+#ifdef CONFIG_OPPO_MSM_14021
+/* OPPO 2014-06-23 sjc Add begin for 14021 */	
+	if (gpio_is_valid(mcu_en_gpio))//sjc0623 add
+		gpio_free(mcu_en_gpio);
 #endif
+
+	qpnp_battery_gauge_unregister(&bq27541_batt_gauge);
 	bq27541_cntl_cmd(di, BQ27541_SUBCMD_DISABLE_DLOG);
 	udelay(66);
 	bq27541_cntl_cmd(di, BQ27541_SUBCMD_DISABLE_IT);
@@ -1501,7 +1737,6 @@ static int bq27541_battery_remove(struct i2c_client *client)
 	return 0;
 }
 
-#ifdef CONFIG_MACH_OPPO
 static int bq27541_battery_suspend(struct i2c_client *client, pm_message_t message)
 {
 	struct bq27541_device_info *di = i2c_get_clientdata(client);
@@ -1523,35 +1758,32 @@ static int bq27541_battery_resume(struct i2c_client *client)
 
 	return 0;
 }
-#endif
 
-#ifdef CONFIG_MACH_OPPO
+
+
+
+
 static const struct of_device_id bq27541_match[] = {
 	{ .compatible = "ti,bq27541-battery" },
 	{ },
 };
-#endif
 
 static const struct i2c_device_id bq27541_id[] = {
-	{ "bq27541", 1 },
+	{ "bq27541-battery", 1 },
 	{},
 };
 MODULE_DEVICE_TABLE(i2c, BQ27541_id);
 
 static struct i2c_driver bq27541_battery_driver = {
 	.driver		= {
-			.name = "bq27541-battery",
-#ifdef CONFIG_MACH_OPPO
-			.owner = THIS_MODULE,
-			.of_match_table = bq27541_match,
-#endif
+		.name = "bq27541-battery",
+		.owner	= THIS_MODULE,
+		.of_match_table = bq27541_match,
 	},
 	.probe		= bq27541_battery_probe,
 	.remove		= bq27541_battery_remove,
-#ifdef CONFIG_MACH_OPPO
-	.suspend	= bq27541_battery_suspend,
+	.suspend	= bq27541_battery_suspend ,
 	.resume		= bq27541_battery_resume,
-#endif
 	.id_table	= bq27541_id,
 };
 
