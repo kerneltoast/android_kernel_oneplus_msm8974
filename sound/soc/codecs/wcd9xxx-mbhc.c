@@ -142,7 +142,9 @@ MODULE_PARM_DESC(impedance_detect_en, "enable/disable impedance detect");
 
 static bool detect_use_vddio_switch;
 
-static bool detection_pending;
+#ifdef CONFIG_MACH_OPPO
+static bool ignore_btn_interrupts;
+#endif
 
 struct wcd9xxx_mbhc_detect {
 	u16 dce;
@@ -2405,6 +2407,19 @@ static void wcd9xxx_find_plug_and_report(struct wcd9xxx_mbhc *mbhc,
 	pr_debug("%s: leave\n", __func__);
 }
 
+#ifdef CONFIG_MACH_OPPO
+static void wcd9xxx_mbhc_headset_btn_delay(struct work_struct *work)
+{
+	/*
+	 * Allow delay between detection completion and the time when
+	 * headset button presses are allowed to be processed. This
+	 * is done in order to prevent spurious button interrupts
+	 * right after plug detection is finished.
+	 */
+	ignore_btn_interrupts = false;
+}
+#endif
+
 /* called under codec_resource_lock acquisition */
 static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 {
@@ -2416,7 +2431,10 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 
 	pr_debug("%s: enter\n", __func__);
 
-	detection_pending = true;
+#ifdef CONFIG_MACH_OPPO
+	cancel_delayed_work_sync(&mbhc->mbhc_btn_delay_dwork);
+	ignore_btn_interrupts = true;
+#endif
 
 	WCD9XXX_BCL_ASSERT_LOCKED(mbhc->resmgr);
 
@@ -2470,7 +2488,6 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 		}
 		pr_debug("%s: Switch level is low when determining plug\n",
 			 __func__);
-		detection_pending = false;
 		return;
 	}
 
@@ -2490,7 +2507,9 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 		 */
 		mbhc->fast_detection = PLUG_TYPE_HEADSET;
 		wcd9xxx_find_plug_and_report(mbhc, PLUG_TYPE_HEADSET);
-		detection_pending = false;
+		/* Allow headset button presses after 750ms */
+		schedule_delayed_work(&mbhc->mbhc_btn_delay_dwork,
+					msecs_to_jiffies(750));
 	}
 
 	if (mbhc->fast_detection != PLUG_TYPE_HEADSET) {
@@ -2901,9 +2920,11 @@ static void wcd9xxx_btn_lpress_fn(struct work_struct *work)
 
 	pr_debug("%s:\n", __func__);
 
-	/* Don't process button interrupts while detection is pending */
-	if (detection_pending)
+#ifdef CONFIG_MACH_OPPO
+	/* Don't process button interrupts immediately after plug detection */
+	if (ignore_btn_interrupts)
 		return;
+#endif
 
 	dwork = to_delayed_work(work);
 	mbhc = container_of(dwork, struct wcd9xxx_mbhc, mbhc_btn_dwork);
@@ -3479,7 +3500,11 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 	pr_debug("%s: leave current_plug(%d)\n", __func__, mbhc->current_plug);
 	/* unlock sleep */
 	wcd9xxx_unlock_sleep(mbhc->resmgr->core_res);
-	detection_pending = false;
+#ifdef CONFIG_MACH_OPPO
+	/* Allow headset button presses after 750ms */
+	schedule_delayed_work(&mbhc->mbhc_btn_delay_dwork,
+					msecs_to_jiffies(750));
+#endif
 }
 
 static void wcd9xxx_swch_irq_handler(struct wcd9xxx_mbhc *mbhc)
@@ -5316,6 +5341,10 @@ int wcd9xxx_mbhc_init(struct wcd9xxx_mbhc *mbhc, struct wcd9xxx_resmgr *resmgr,
 		INIT_DELAYED_WORK(&mbhc->mbhc_btn_dwork, wcd9xxx_btn_lpress_fn);
 		INIT_DELAYED_WORK(&mbhc->mbhc_insert_dwork,
 				  wcd9xxx_mbhc_insert_work);
+#ifdef CONFIG_MACH_OPPO
+		INIT_DELAYED_WORK(&mbhc->mbhc_btn_delay_dwork,
+				  wcd9xxx_mbhc_headset_btn_delay);
+#endif
 	}
 
 	mutex_init(&mbhc->mbhc_lock);
