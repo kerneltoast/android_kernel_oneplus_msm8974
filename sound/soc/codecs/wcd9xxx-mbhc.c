@@ -2447,7 +2447,12 @@ static void wcd9xxx_mbhc_decide_swch_plug(struct wcd9xxx_mbhc *mbhc)
 		 * For other plug types, the current source disable
 		 * will be done from wcd9xxx_correct_swch_plug
 		 */
+#ifdef CONFIG_MACH_OPPO
+		if (plug_type == PLUG_TYPE_HEADSET ||
+			plug_type == PLUG_TYPE_HIGH_HPH)
+#else
 		if (plug_type == PLUG_TYPE_HEADSET)
+#endif
 			wcd9xxx_turn_onoff_current_source(mbhc,
 						&mbhc->mbhc_bias_regs,
 						false, false);
