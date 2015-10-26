@@ -3430,7 +3430,7 @@ static void wcd9xxx_correct_swch_plug(struct work_struct *work)
 #ifdef CONFIG_MACH_OPPO
 	/* Change to the correct plug type if fast-detection was wrong */
 	if (mbhc->fast_detection && plug_type != mbhc->fast_detection) {
-		mbhc->fast_detection = 0;
+		mbhc->fast_detection = PLUG_TYPE_NONE;
 		wcd9xxx_do_plug_correction(mbhc, retry, plug_type,
 				&correction, current_source_enable,
 				false);
