@@ -4040,6 +4040,10 @@ static irqreturn_t wcd9xxx_release_handler(int irq, void *data)
 	int ret;
 	bool waitdebounce = true;
 	struct wcd9xxx_mbhc *mbhc = data;
+#ifdef CONFIG_MACH_OPPO
+	/* Don't process button interrupts immediately after plug detection */
+	bool skip_btn_press = ignore_btn_interrupts;
+#endif
 
 	pr_debug("%s: enter\n", __func__);
 	WCD9XXX_BCL_LOCK(mbhc->resmgr);
@@ -4047,12 +4051,20 @@ static irqreturn_t wcd9xxx_release_handler(int irq, void *data)
 
 	if (mbhc->buttons_pressed & WCD9XXX_JACK_BUTTON_MASK) {
 		ret = wcd9xxx_cancel_btn_work(mbhc);
+#ifdef CONFIG_MACH_OPPO
+		if (ret == 0 && !skip_btn_press) {
+#else
 		if (ret == 0) {
+#endif
 			pr_debug("%s: Reporting long button release event\n",
 				 __func__);
 			wcd9xxx_jack_report(mbhc, &mbhc->button_jack, 0,
 					    mbhc->buttons_pressed);
+#ifdef CONFIG_MACH_OPPO
+		} else if (!skip_btn_press) {
+#else
 		} else {
+#endif
 			if (wcd9xxx_is_false_press(mbhc)) {
 				pr_debug("%s: Fake button press interrupt\n",
 					 __func__);
