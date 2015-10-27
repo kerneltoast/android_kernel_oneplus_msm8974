@@ -270,7 +270,7 @@ static int SN3193_SetBrightness(int color,u8 brightness)
 {
 	int ret=0;
 	if (color == RED_SLED)
-		brightness = brightness * 7 / 16;
+		brightness = brightness * 97 / 256;
 	SN3193_write_reg(0x04+color, brightness);
 	return ret;
 }
