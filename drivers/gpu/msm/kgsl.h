@@ -196,6 +196,9 @@ struct kgsl_mem_entry {
 #define MMU_CONFIG 1
 #endif
 
+int kgsl_cmdbatch_add_memobj(struct kgsl_cmdbatch *cmdbatch,
+			struct kgsl_ibdesc *ibdesc);
+
 void kgsl_mem_entry_destroy(struct kref *kref);
 int kgsl_postmortem_dump(struct kgsl_device *device, int manual);
 
@@ -208,16 +211,6 @@ struct kgsl_mem_entry *kgsl_sharedmem_find_region(
 
 void kgsl_get_memory_usage(char *str, size_t len, unsigned int memflags);
 
-void kgsl_signal_event(struct kgsl_device *device,
-		struct kgsl_context *context, unsigned int timestamp,
-		unsigned int type);
-
-void kgsl_signal_events(struct kgsl_device *device,
-		struct kgsl_context *context, unsigned int type);
-
-void kgsl_cancel_events(struct kgsl_device *device,
-	void *owner);
-
 extern const struct dev_pm_ops kgsl_pm_ops;
 
 int kgsl_suspend_driver(struct platform_device *pdev, pm_message_t state);
@@ -227,7 +220,7 @@ void kgsl_trace_regwrite(struct kgsl_device *device, unsigned int offset,
 		unsigned int value);
 
 void kgsl_trace_issueibcmds(struct kgsl_device *device, int id,
-		struct kgsl_cmdbatch *cmdbatch,
+		struct kgsl_cmdbatch *cmdbatch, unsigned int numibs,
 		unsigned int timestamp, unsigned int flags,
 		int result, unsigned int type);
 
