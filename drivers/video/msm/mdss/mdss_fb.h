@@ -238,7 +238,9 @@ struct msm_fb_data_type {
 
 	int doze_mode;
 
+#ifdef CONFIG_MACH_MSM8974_14001
 	struct delayed_work unblank_bl_work;
+#endif
 };
 
 static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)

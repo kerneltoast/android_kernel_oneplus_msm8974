@@ -75,14 +75,16 @@ static u32 mdss_fb_pseudo_palette[16] = {
 
 static struct msm_mdp_interface *mdp_instance;
 
+#ifdef CONFIG_MACH_MSM8974_14001
 enum fb_unblank_bl_delay {
 	FB_UNBLANK_NO_BL_DELAY,
 	FB_UNBLANK_READY_TO_UPDATE_BL,
 	FB_UNBLANK_DELAY_BL_TWO_FRAMES,
 };
 
-static enum fb_unblank_bl_delay fb_unblank;
+static enum fb_unblank_bl_delay fb_unblank_bl;
 static void mdss_fb_unblank_bl_fallback(struct work_struct *work);
+#endif
 
 static int mdss_fb_register(struct msm_fb_data_type *mfd);
 static int mdss_fb_open(struct fb_info *info, int user);
@@ -768,7 +770,9 @@ static int mdss_fb_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&mfd->idle_notify_work, __mdss_fb_idle_notify_work);
 
+#ifdef CONFIG_MACH_MSM8974_14001
 	INIT_DELAYED_WORK(&mfd->unblank_bl_work, mdss_fb_unblank_bl_fallback);
+#endif
 
 	return rc;
 }
@@ -1058,8 +1062,10 @@ void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl)
 		mfd->unset_bl_level = 0;
 	}
 
-	if (fb_unblank != FB_UNBLANK_NO_BL_DELAY)
+#ifdef CONFIG_MACH_MSM8974_14001
+	if (fb_unblank_bl != FB_UNBLANK_NO_BL_DELAY)
 		return;
+#endif
 
 	pdata = dev_get_platdata(&mfd->pdev->dev);
 
@@ -1098,8 +1104,10 @@ void mdss_fb_update_backlight(struct msm_fb_data_type *mfd)
 	u32 temp;
 	bool bl_notify = false;
 
-	if (fb_unblank != FB_UNBLANK_NO_BL_DELAY)
+#ifdef CONFIG_MACH_MSM8974_14001
+	if (fb_unblank_bl != FB_UNBLANK_NO_BL_DELAY)
 		return;
+#endif
 
 	if (mfd->unset_bl_level) {
 		mutex_lock(&mfd->bl_lock);
@@ -1229,7 +1237,9 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 		pr_debug("unblank called. cur pwr state=%d\n", cur_power_state);
-		fb_unblank = FB_UNBLANK_DELAY_BL_TWO_FRAMES;
+#ifdef CONFIG_MACH_MSM8974_14001
+		fb_unblank_bl = FB_UNBLANK_DELAY_BL_TWO_FRAMES;
+#endif
 		ret = mdss_fb_unblank_sub(mfd);
 		break;
 
@@ -2435,17 +2445,19 @@ static void mdss_fb_var_to_panelinfo(struct fb_var_screeninfo *var,
 	pinfo->clk_rate = var->pixclock;
 }
 
+#ifdef CONFIG_MACH_MSM8974_14001
 static void mdss_fb_unblank_bl_fallback(struct work_struct *work)
 {
 	struct msm_fb_data_type *mfd = container_of(work,
 						struct msm_fb_data_type,
 						unblank_bl_work.work);
 
-	if (fb_unblank == FB_UNBLANK_READY_TO_UPDATE_BL) {
-		fb_unblank = FB_UNBLANK_NO_BL_DELAY;
+	if (fb_unblank_bl == FB_UNBLANK_READY_TO_UPDATE_BL) {
+		fb_unblank_bl = FB_UNBLANK_NO_BL_DELAY;
 		mdss_fb_update_backlight(mfd);
 	}
 }
+#endif
 
 /**
  * __mdss_fb_perform_commit() - process a frame to display
@@ -2481,22 +2493,27 @@ static int __mdss_fb_perform_commit(struct msm_fb_data_type *mfd)
 		wake_up_all(&mfd->kickoff_wait_q);
 	}
 
+#ifdef CONFIG_MACH_MSM8974_14001
 	/*
 	 * Don't enable backlight after unblank until after 2nd frame
 	 * is committed in order to ensure that display contents are
 	 * defined and the display is fully powered on and ready to
 	 * render the frame contents.
 	 */
-	if (fb_unblank == FB_UNBLANK_DELAY_BL_TWO_FRAMES) {
+	if (fb_unblank_bl == FB_UNBLANK_DELAY_BL_TWO_FRAMES) {
 		cancel_delayed_work_sync(&mfd->unblank_bl_work);
-		fb_unblank = FB_UNBLANK_READY_TO_UPDATE_BL;
-		/* Enable backlight if next commit doesn't come within 30ms */
+		fb_unblank_bl = FB_UNBLANK_READY_TO_UPDATE_BL;
+		/* Enable backlight if next commit doesn't come within 15ms */
 		schedule_delayed_work(&mfd->unblank_bl_work,
-					msecs_to_jiffies(30));
+					msecs_to_jiffies(15));
 	} else if (!ret) {
-		fb_unblank = FB_UNBLANK_NO_BL_DELAY;
+		fb_unblank_bl = FB_UNBLANK_NO_BL_DELAY;
 		mdss_fb_update_backlight(mfd);
 	}
+#else
+	if (!ret)
+		mdss_fb_update_backlight(mfd);
+#endif
 
 	if (IS_ERR_VALUE(ret) || !sync_pt_data->flushed)
 		mdss_fb_signal_timeline(sync_pt_data);
