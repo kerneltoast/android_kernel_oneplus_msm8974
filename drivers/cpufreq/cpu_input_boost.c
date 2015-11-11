@@ -65,7 +65,6 @@ static unsigned int migration_boost_ms;
 static unsigned int migration_load_threshold;
 static unsigned int ib_nr_cpus_boosted;
 static unsigned int ib_nr_cpus_to_boost;
-static unsigned int sync_threshold;
 
 /* Boost function for input boost (only for CPU0) */
 static void boost_cpu0(unsigned int duration_ms)
@@ -342,9 +341,6 @@ static int boost_mig_sync_thread(void *data)
 			continue;
 		}
 
-		if (sync_threshold)
-			req_freq = min(sync_threshold, req_freq);
-
 		cancel_delayed_work_sync(&b->mig_boost_rem);
 
 		b->migration_freq = req_freq;
@@ -598,20 +594,6 @@ static ssize_t migration_load_threshold_write(struct device *dev,
 	return size;
 }
 
-static ssize_t sync_threshold_write(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t size)
-{
-	unsigned int data;
-	int ret = sscanf(buf, "%u", &data);
-
-	if (ret != 1)
-		return -EINVAL;
-
-	sync_threshold = data;
-
-	return size;
-}
-
 static ssize_t enabled_read(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -649,12 +631,6 @@ static ssize_t migration_load_threshold_read(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%u\n", migration_load_threshold);
 }
 
-static ssize_t sync_threshold_read(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	return snprintf(buf, PAGE_SIZE, "%u\n", sync_threshold);
-}
-
 static DEVICE_ATTR(enabled, 0644,
 			enabled_read, enabled_write);
 static DEVICE_ATTR(ib_freqs, 0644,
@@ -667,8 +643,6 @@ static DEVICE_ATTR(migration_boost_ms, 0644,
 			migration_boost_ms_read, migration_boost_ms_write);
 static DEVICE_ATTR(migration_load_threshold, 0644,
 			migration_load_threshold_read, migration_load_threshold_write);
-static DEVICE_ATTR(sync_threshold, 0644,
-			sync_threshold_read, sync_threshold_write);
 
 static struct attribute *cpu_ib_attr[] = {
 	&dev_attr_enabled.attr,
@@ -677,7 +651,6 @@ static struct attribute *cpu_ib_attr[] = {
 	&dev_attr_load_based_syncs.attr,
 	&dev_attr_migration_boost_ms.attr,
 	&dev_attr_migration_load_threshold.attr,
-	&dev_attr_sync_threshold.attr,
 	NULL
 };
 
