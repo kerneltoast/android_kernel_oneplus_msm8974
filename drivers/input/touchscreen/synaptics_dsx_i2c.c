@@ -451,10 +451,6 @@ exit:
 #define Mgestrue            12  // M
 #define Wgestrue            13  // W
 
-#define BLANK	1
-#define UNBLANK	0
-#define DOZE	2
-
 #define SYNA_ADDR_REPORT_FLAG        0x1b  //report mode register
 #define SYNA_ADDR_GESTURE_FLAG       0x20  //gesture enable register
 #define SYNA_ADDR_GESTURE_OFFSET     0x08  //gesture register addr=0x08
@@ -535,7 +531,7 @@ static ssize_t vk_syna_show(struct kobject *kobj,
 
 static struct kobj_attribute vk_syna_attr = {
 	.attr = {
-		.name = "virtualkeys.""synaptics-rmi-ts",
+		.name = "virtualkeys.synaptics-rmi-ts",
 		.mode = S_IRUGO,
 	},
 	.show = &vk_syna_show,
@@ -2210,7 +2206,7 @@ static void synaptics_rmi4_get_vendorid(struct synaptics_rmi4_data *rmi4_data)
 
 	rmi4_data->vendor_id = vendor_id;
 	synaptics_rmi4_get_vendorstring(rmi4_data->vendor_id, lcd_type_id);
-	pr_err("[syna] vendor id: %x\n", vendor_id);
+	pr_err("vendor id: %x\n", vendor_id);
 }
 
 /**
