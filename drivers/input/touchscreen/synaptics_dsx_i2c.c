@@ -1309,7 +1309,7 @@ static irqreturn_t synaptics_rmi4_irq(int irq, void *data)
  * such as rmi_dev.
  *
  * This function handles the enabling and disabling of the attention
- * irq including the setting up of the ISR thread.
+ * irq.
  */
 static int synaptics_rmi4_irq_enable(struct synaptics_rmi4_data *rmi4_data,
 		bool enable)
@@ -2022,7 +2022,10 @@ static void synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data,
 	regulator_disable(rmi4_data->regulator);
 	msleep(30);
 	rmi4_data->current_page = MASK_8BIT;
-	synaptics_rmi4_irq_enable(rmi4_data, false);
+	if (atomic_read(&rmi4_data->irq_enabled)) {
+		disable_irq(rmi4_data->irq);
+		atomic_set(&rmi4_data->irq_enabled, 0);
+	}
 
 	synaptics_rmi4_free_fingers(rmi4_data);
 
@@ -2053,9 +2056,12 @@ static void synaptics_rmi4_reset_device(struct synaptics_rmi4_data *rmi4_data,
 
 	//reinit device
 	msleep(10);
-	synaptics_rmi4_irq_enable(rmi4_data, true);
 	synaptics_rmi4_i2c_read(rmi4_data,rmi4_data->f01_data_base_addr + 1,
 			(unsigned char *)&temp, 1);
+	if (!atomic_read(&rmi4_data->irq_enabled)) {
+		enable_irq(rmi4_data->irq);
+		atomic_set(&rmi4_data->irq_enabled, 1);
+	}
 }
 
 /**
