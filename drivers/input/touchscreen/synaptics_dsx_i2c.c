@@ -1305,16 +1305,31 @@ static irqreturn_t synaptics_rmi4_irq(int irq, void *data)
  * such as rmi_dev.
  *
  * This function handles the enabling and disabling of the attention
- * irq.
+ * irq including the setting up of the ISR thread.
  */
 static int synaptics_rmi4_irq_enable(struct synaptics_rmi4_data *rmi4_data,
 		bool enable)
 {
+	int ret = 0;
+	unsigned char intr_status[MAX_INTR_REGISTERS];
+
 	if ((enable && atomic_read(&rmi4_data->irq_enabled)) ||
 		(!enable && !atomic_read(&rmi4_data->irq_enabled)))
-		return 0;
+		return ret;
 
 	if (enable) {
+		/* Clear interrupts first */
+		ret = synaptics_rmi4_i2c_read(rmi4_data,
+				rmi4_data->f01_data_base_addr + 1,
+				intr_status,
+				rmi4_data->num_of_intr_regs);
+		if (ret) {
+			dev_err(&rmi4_data->i2c_client->dev,
+				"%s: Failed to read interrupt status %d\n",
+				__func__, __LINE__);
+			return ret;
+		}
+
 		enable_irq(rmi4_data->irq);
 		atomic_set(&rmi4_data->irq_enabled, 1);
 	} else {
@@ -1322,7 +1337,7 @@ static int synaptics_rmi4_irq_enable(struct synaptics_rmi4_data *rmi4_data,
 		atomic_set(&rmi4_data->irq_enabled, 0);
 	}
 
-	return 0;
+	return ret;
 }
 
 static int synaptics_rmi4_f12_set_enables(struct synaptics_rmi4_data *rmi4_data,
