@@ -38,7 +38,7 @@ struct boost_policy {
 	struct task_struct *thread;
 	bool pending;
 	int src_cpu;
-	unsigned int boost_state;
+	enum boost_status boost_state;
 	unsigned int cpu;
 	unsigned int migration_freq;
 	unsigned int task_load;
@@ -55,27 +55,33 @@ static struct work_struct boost_work;
 static bool ib_running;
 static bool load_based_syncs;
 static bool suspended;
-static unsigned int boost_ms[4];
-static unsigned int ib_freq[4];
+static enum boost_status fb_boost;
+static u64 boost_start_time;
+static unsigned int ib_adj_duration_ms;
+static unsigned int ib_duration_ms;
+static unsigned int ib_freq[2];
 static unsigned int enabled;
-static unsigned int fb_boost;
 static unsigned int migration_boost_ms;
 static unsigned int migration_load_threshold;
+static unsigned int ib_nr_cpus_boosted;
+static unsigned int ib_nr_cpus_to_boost;
 static unsigned int sync_threshold;
 
-/* Boost function for input boost */
-static void cpu_boost_cpu(unsigned int cpu)
+/* Boost function for input boost (only for CPU0) */
+static void boost_cpu0(unsigned int duration_ms)
 {
-	struct boost_policy *b = &per_cpu(boost_info, cpu);
+	struct boost_policy *b = &per_cpu(boost_info, 0);
 
 	b->boost_state = BOOST;
-	cpufreq_update_policy(cpu);
+	ib_nr_cpus_boosted++;
+	cpufreq_update_policy(0);
 	queue_delayed_work(boost_wq, &b->ib_restore_work,
-				msecs_to_jiffies(boost_ms[cpu]));
+				msecs_to_jiffies(duration_ms));
+	boost_start_time = ktime_to_ms(ktime_get());
 }
 
 /* Unboost function for input boost */
-static void cpu_unboost_cpu(unsigned int cpu)
+static void unboost_cpu(unsigned int cpu)
 {
 	struct boost_policy *b = &per_cpu(boost_info, cpu);
 
@@ -86,7 +92,7 @@ static void cpu_unboost_cpu(unsigned int cpu)
 	put_online_cpus();
 }
 
-static void cpu_unboost_all(void)
+static void unboost_all_cpus(void)
 {
 	struct boost_policy *b;
 	unsigned int cpu;
@@ -119,43 +125,65 @@ static void stop_remove_all_boosts(void)
 		b->migration_freq = 0;
 	}
 
-	cpu_unboost_all();
+	unboost_all_cpus();
 }
 
-/* Input boost main boost function */
+/* Main input boost worker */
 static void __cpuinit ib_boost_main(struct work_struct *work)
 {
-	unsigned int cpu, nr_cpus_to_boost, nr_boosted = 0;
-
 	get_online_cpus();
-	/* Max. of 3 CPUs can be boosted at any given time */
-	nr_cpus_to_boost = num_online_cpus() > 2 ? num_online_cpus() - 1 : 1;
 
-	for_each_online_cpu(cpu) {
-		/* Calculate boost duration for each CPU (CPU0 is boosted the longest) */
-		/* TODO: Make this more standard and configurable from sysfs */
-		boost_ms[cpu] = 1500 - (cpu * 200) - (nr_cpus_to_boost * 250);
-		cpu_boost_cpu(cpu);
-		nr_boosted++;
-		if (nr_boosted == nr_cpus_to_boost)
-			break;
-	}
+	ib_nr_cpus_boosted = 0;
+
+	/*
+	 * Maximum of two CPUs can be boosted at any given time.
+	 * Boost two CPUs if only one is online as it's very likely
+	 * that another CPU will come online soon (due to user interaction).
+	 * The next CPU to come online is the other CPU that will be boosted.
+	 */
+	ib_nr_cpus_to_boost = num_online_cpus() == 1 ? 2 : 1;
+
+	/*
+	 * Reduce the boost duration for all CPUs by a factor of
+	 * (1 + num_online_cpus())/(3 + num_online_cpus()).
+	 */
+	ib_adj_duration_ms = ib_duration_ms * 3 / (3 + num_online_cpus());
+
+	/*
+	 * Only boost CPU0 from here. More than one CPU is only boosted when
+	 * the 2nd CPU to boost is offline at this point in time, so the boost
+	 * notifier will handle boosting the 2nd CPU if/when it comes online.
+	 *
+	 * Add 10ms to the CPU0's duration to prevent trivial racing with the
+	 * 2nd CPU's restoration worker (if a 2nd CPU is indeed boosted).
+	 */
+	boost_cpu0(ib_adj_duration_ms + 10);
+
 	put_online_cpus();
 }
 
-/* Input boost main restore function */
+/* Main restoration worker for input boost */
 static void __cpuinit ib_restore_main(struct work_struct *work)
 {
 	struct boost_policy *b = container_of(work, struct boost_policy,
 							ib_restore_work.work);
-	cpu_unboost_cpu(b->cpu);
+	unsigned int cpu;
 
-	if (!b->cpu)
-		ib_running = false;
+	unboost_cpu(b->cpu);
+
+	/* Check if all boosts are finished */
+	for_each_possible_cpu(cpu) {
+		b = &per_cpu(boost_info, cpu);
+		if (b->boost_state == BOOST)
+			return;
+	}
+
+	/* All input boosts are done, ready to accept new boosts now */
+	ib_running = false;
 }
 
 /* Framebuffer boost function */
-static void __cpuinit fb_boost_fn(struct work_struct *work)
+static void __cpuinit fb_boost_main(struct work_struct *work)
 {
 	unsigned int cpu;
 
@@ -169,7 +197,7 @@ static void __cpuinit fb_boost_fn(struct work_struct *work)
 					msecs_to_jiffies(FB_BOOST_MS));
 	} else {
 		fb_boost = UNBOOST;
-		cpu_unboost_all();
+		unboost_all_cpus();
 	}
 }
 
@@ -178,14 +206,17 @@ static void __cpuinit fb_boost_fn(struct work_struct *work)
  * boosts will take precedence over others. Below is the current
  * hierarchy, from most precedence to least precedence:
  *
- * 1. Framebuffer blank/unblank boost
+ * 1. Framebuffer unblank boost
  * 2. Thread-migration boost (only if the mig boost freq > policy->min)
  * 3. Input boost
  */
-static int cpu_do_boost(struct notifier_block *nb, unsigned long val, void *data)
+static int do_cpu_boost(struct notifier_block *nb, unsigned long val, void *data)
 {
 	struct cpufreq_policy *policy = data;
 	struct boost_policy *b = &per_cpu(boost_info, policy->cpu);
+
+	if (!enabled && policy->min == policy->cpuinfo.min_freq)
+		return NOTIFY_OK;
 
 	if (val == CPUFREQ_START) {
 		set_cpus_allowed(b->thread, *cpumask_of(b->cpu));
@@ -195,26 +226,38 @@ static int cpu_do_boost(struct notifier_block *nb, unsigned long val, void *data
 	if (val != CPUFREQ_ADJUST)
 		return NOTIFY_OK;
 
-	switch (b->boost_state) {
-	case UNBOOST:
+	if (fb_boost) {
+		policy->min = policy->max;
+		return NOTIFY_OK;
+	}
+
+	if (b->boost_state == UNBOOST)
 		policy->min = policy->cpuinfo.min_freq;
-		break;
-	case BOOST:
-		policy->min = min(policy->max, ib_freq[policy->cpu]);
-		break;
+	else if (b->boost_state == BOOST)
+		policy->min = min(policy->max, ib_freq[policy->cpu ? 1 : 0]);
+
+	/* Boost previously-offline CPU */
+	if (ib_nr_cpus_boosted < ib_nr_cpus_to_boost &&
+		policy->cpu) {
+		int duration_ms = ib_adj_duration_ms -
+			(ktime_to_ms(ktime_get()) - boost_start_time);
+		if (duration_ms > 0) {
+			b->boost_state = BOOST;
+			policy->min = min(policy->max, ib_freq[1]);
+			ib_nr_cpus_boosted++;
+			queue_delayed_work(boost_wq, &b->ib_restore_work,
+						msecs_to_jiffies(duration_ms));
+		}
 	}
 
 	if (b->migration_freq > policy->min)
 		policy->min = min(policy->max, b->migration_freq);
 
-	if (fb_boost)
-		policy->min = policy->max;
-
 	return NOTIFY_OK;
 }
 
-static struct notifier_block cpu_do_boost_nb = {
-	.notifier_call = cpu_do_boost,
+static struct notifier_block do_cpu_boost_nb = {
+	.notifier_call = do_cpu_boost,
 };
 
 /* Framebuffer notifier callback function */
@@ -341,7 +384,7 @@ static int boost_migration_notify(struct notifier_block *nb,
 	if (!enabled || !migration_boost_ms)
 		return NOTIFY_OK;
 
-	/* Don't boost while suspended or during fb blank/unblank */
+	/* Don't boost while suspended or during fb unblank */
 	if (suspended || fb_boost)
 		return NOTIFY_OK;
 
@@ -364,11 +407,11 @@ static int boost_migration_notify(struct notifier_block *nb,
 	b->task_load = load_based_syncs ? mnd->load : 0;
 	spin_unlock_irqrestore(&b->lock, flags);
 	/*
-	* Avoid issuing recursive wakeup call, as sync thread itself could be
-	* seen as migrating triggering this notification. Note that sync thread
-	* of a cpu could be running for a short while with its affinity broken
-	* because of CPU hotplug.
-	*/
+	 * Avoid issuing recursive wakeup call, as sync thread itself could be
+	 * seen as migrating triggering this notification. Note that sync thread
+	 * of a cpu could be running for a short while with its affinity broken
+	 * because of CPU hotplug.
+	 */
 	if (!atomic_cmpxchg(&b->being_woken, 0, 1)) {
 		wake_up(&b->sync_wq);
 		atomic_set(&b->being_woken, 0);
@@ -381,7 +424,7 @@ static struct notifier_block boost_migration_nb = {
 	.notifier_call = boost_migration_notify,
 };
 
-static void cpu_iboost_input_event(struct input_handle *handle, unsigned int type,
+static void cpu_ib_input_event(struct input_handle *handle, unsigned int type,
 		unsigned int code, int value)
 {
 	if (ib_running || !enabled || fb_boost)
@@ -391,7 +434,7 @@ static void cpu_iboost_input_event(struct input_handle *handle, unsigned int typ
 	queue_work(boost_wq, &boost_work);
 }
 
-static int cpu_iboost_input_connect(struct input_handler *handler,
+static int cpu_ib_input_connect(struct input_handler *handler,
 		struct input_dev *dev, const struct input_device_id *id)
 {
 	struct input_handle *handle;
@@ -421,14 +464,14 @@ err2:
 	return error;
 }
 
-static void cpu_iboost_input_disconnect(struct input_handle *handle)
+static void cpu_ib_input_disconnect(struct input_handle *handle)
 {
 	input_close_device(handle);
 	input_unregister_handle(handle);
 	kfree(handle);
 }
 
-static const struct input_device_id cpu_iboost_ids[] = {
+static const struct input_device_id cpu_ib_ids[] = {
 	/* multi-touch touchscreen */
 	{
 		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
@@ -449,38 +492,16 @@ static const struct input_device_id cpu_iboost_ids[] = {
 	{ },
 };
 
-static struct input_handler cpu_iboost_input_handler = {
-	.event		= cpu_iboost_input_event,
-	.connect	= cpu_iboost_input_connect,
-	.disconnect	= cpu_iboost_input_disconnect,
+static struct input_handler cpu_ib_input_handler = {
+	.event		= cpu_ib_input_event,
+	.connect	= cpu_ib_input_connect,
+	.disconnect	= cpu_ib_input_disconnect,
 	.name		= "cpu_iboost",
-	.id_table	= cpu_iboost_ids,
+	.id_table	= cpu_ib_ids,
 };
 
 /**************************** SYSFS START ****************************/
-static struct kobject *cpu_iboost_kobject;
-
-static ssize_t ib_freqs_write(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t size)
-{
-	unsigned int freq[3];
-	int ret = sscanf(buf, "%u %u %u", &freq[0], &freq[1], &freq[2]);
-
-	if (ret != 3)
-		return -EINVAL;
-
-	if (!freq[0] || !freq[1] || !freq[2])
-		return -EINVAL;
-
-	/* ib_freq[0] is assigned to CPU0, ib_freq[1] to CPU1, and so on */
-	ib_freq[0] = freq[0];
-	ib_freq[1] = freq[1];
-	ib_freq[2] = freq[2];
-	/* Use same freq for CPU2 & CPU3 (as only 3 cores may be boosted at once) */
-	ib_freq[3] = freq[2];
-
-	return size;
-}
+static struct kobject *cpu_ib_kobject;
 
 static ssize_t enabled_write(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
@@ -493,8 +514,44 @@ static ssize_t enabled_write(struct device *dev,
 
 	enabled = data;
 
-	if (!data)
+	if (!enabled)
 		stop_remove_all_boosts();
+
+	return size;
+}
+
+static ssize_t ib_freqs_write(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	unsigned int freq[2];
+	int ret = sscanf(buf, "%u %u", &freq[0], &freq[1]);
+
+	if (ret != 2)
+		return -EINVAL;
+
+	if (!freq[0] || !freq[1])
+		return -EINVAL;
+
+	/* ib_freq[0] is assigned to CPU0, ib_freq[1] to CPUX (X > 0) */
+	ib_freq[0] = freq[0];
+	ib_freq[1] = freq[1];
+
+	return size;
+}
+
+static ssize_t ib_duration_ms_write(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	unsigned int ms;
+	int ret = sscanf(buf, "%u", &ms);
+
+	if (ret != 1)
+		return -EINVAL;
+
+	if (!ms)
+		return -EINVAL;
+
+	ib_duration_ms = ms;
 
 	return size;
 }
@@ -555,17 +612,23 @@ static ssize_t sync_threshold_write(struct device *dev,
 	return size;
 }
 
-static ssize_t ib_freqs_read(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	return snprintf(buf, PAGE_SIZE, "%u %u %u\n",
-			ib_freq[0], ib_freq[1], ib_freq[2]);
-}
-
 static ssize_t enabled_read(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%u\n", enabled);
+}
+
+static ssize_t ib_freqs_read(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u %u\n",
+				ib_freq[0], ib_freq[1]);
+}
+
+static ssize_t ib_duration_ms_read(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n", ib_duration_ms);
 }
 
 static ssize_t load_based_syncs_read(struct device *dev,
@@ -592,10 +655,12 @@ static ssize_t sync_threshold_read(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%u\n", sync_threshold);
 }
 
-static DEVICE_ATTR(ib_freqs, 0644,
-			ib_freqs_read, ib_freqs_write);
 static DEVICE_ATTR(enabled, 0644,
 			enabled_read, enabled_write);
+static DEVICE_ATTR(ib_freqs, 0644,
+			ib_freqs_read, ib_freqs_write);
+static DEVICE_ATTR(ib_duration_ms, 0644,
+			ib_duration_ms_read, ib_duration_ms_write);
 static DEVICE_ATTR(load_based_syncs, 0644,
 			load_based_syncs_read, load_based_syncs_write);
 static DEVICE_ATTR(migration_boost_ms, 0644,
@@ -605,9 +670,10 @@ static DEVICE_ATTR(migration_load_threshold, 0644,
 static DEVICE_ATTR(sync_threshold, 0644,
 			sync_threshold_read, sync_threshold_write);
 
-static struct attribute *cpu_iboost_attr[] = {
-	&dev_attr_ib_freqs.attr,
+static struct attribute *cpu_ib_attr[] = {
 	&dev_attr_enabled.attr,
+	&dev_attr_ib_freqs.attr,
+	&dev_attr_ib_duration_ms.attr,
 	&dev_attr_load_based_syncs.attr,
 	&dev_attr_migration_boost_ms.attr,
 	&dev_attr_migration_load_threshold.attr,
@@ -615,26 +681,26 @@ static struct attribute *cpu_iboost_attr[] = {
 	NULL
 };
 
-static struct attribute_group cpu_iboost_attr_group = {
-	.attrs  = cpu_iboost_attr,
+static struct attribute_group cpu_ib_attr_group = {
+	.attrs  = cpu_ib_attr,
 };
 /**************************** SYSFS END ****************************/
 
-static int __init cpu_iboost_init(void)
+static int __init cpu_ib_init(void)
 {
 	struct boost_policy *b;
 	int cpu, ret;
 
-	boost_wq = alloc_workqueue("cpu_iboost_wq", WQ_HIGHPRI, 0);
+	boost_wq = alloc_workqueue("cpu_ib_wq", WQ_HIGHPRI | WQ_NON_REENTRANT, 0);
 	if (!boost_wq) {
 		pr_err("Failed to allocate workqueue\n");
 		ret = -EFAULT;
 		goto err;
 	}
 
-	cpufreq_register_notifier(&cpu_do_boost_nb, CPUFREQ_POLICY_NOTIFIER);
+	cpufreq_register_notifier(&do_cpu_boost_nb, CPUFREQ_POLICY_NOTIFIER);
 
-	INIT_DELAYED_WORK(&fb_boost_work, fb_boost_fn);
+	INIT_DELAYED_WORK(&fb_boost_work, fb_boost_main);
 
 	fb_register_client(&fb_boost_nb);
 
@@ -655,27 +721,27 @@ static int __init cpu_iboost_init(void)
 
 	INIT_WORK(&boost_work, ib_boost_main);
 
-	ret = input_register_handler(&cpu_iboost_input_handler);
+	ret = input_register_handler(&cpu_ib_input_handler);
 	if (ret) {
 		pr_err("Failed to register input handler, err: %d\n", ret);
 		goto err;
 	}
 
-	cpu_iboost_kobject = kobject_create_and_add("cpu_input_boost", kernel_kobj);
-	if (!cpu_iboost_kobject) {
+	cpu_ib_kobject = kobject_create_and_add("cpu_input_boost", kernel_kobj);
+	if (!cpu_ib_kobject) {
 		pr_err("Failed to create kobject\n");
 		goto err;
 	}
 
-	ret = sysfs_create_group(cpu_iboost_kobject, &cpu_iboost_attr_group);
+	ret = sysfs_create_group(cpu_ib_kobject, &cpu_ib_attr_group);
 	if (ret) {
 		pr_err("Failed to create sysfs interface\n");
-		kobject_put(cpu_iboost_kobject);
+		kobject_put(cpu_ib_kobject);
 	}
 err:
 	return ret;
 }
-late_initcall(cpu_iboost_init);
+late_initcall(cpu_ib_init);
 
 MODULE_AUTHOR("Sultanxda <sultanxda@gmail.com>");
 MODULE_DESCRIPTION("CPU Input Boost");
