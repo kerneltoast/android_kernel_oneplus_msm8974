@@ -42,6 +42,9 @@
    by vOSS.
     
   
+   Copyright 2008 (c) Qualcomm, Incorporated.  All Rights Reserved.
+   
+   Qualcomm Confidential and Proprietary.
   
   ========================================================================*/
 
@@ -334,11 +337,6 @@ typedef struct _VosContextType
    /* NV BIN Version */
    eNvVersionType     nvVersion;
 
-   /* Roam delay statistic enabled in ini*/
-   v_U8_t             roamDelayStatsEnabled;
-
-   /*Fw log complete Event*/
-   vos_event_t fwLogsComplete;
 } VosContextType, *pVosContextType;
 
 
