@@ -336,6 +336,15 @@ static ssize_t mdss_mdp_show_blank_event(struct device *dev,
 	return ret;
 }
 
+static void __mdss_fb_lp_cooloff_work(struct work_struct *work)
+{
+	struct delayed_work *dw = to_delayed_work(work);
+	struct msm_fb_data_type *mfd = container_of(dw, struct msm_fb_data_type,
+		lp_cooloff_work);
+
+	mfd->lp_coff = 0;
+}
+
 static void __mdss_fb_idle_notify_work(struct work_struct *work)
 {
 	struct delayed_work *dw = to_delayed_work(work);
@@ -769,6 +778,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 		mfd->mdp.splash_init_fnc(mfd);
 
 	INIT_DELAYED_WORK(&mfd->idle_notify_work, __mdss_fb_idle_notify_work);
+	INIT_DELAYED_WORK(&mfd->lp_cooloff_work, __mdss_fb_lp_cooloff_work);
 
 #ifdef CONFIG_MACH_MSM8974_14001
 	INIT_DELAYED_WORK(&mfd->unblank_bl_work, mdss_fb_unblank_bl_fallback);
@@ -1252,8 +1262,12 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 		 * then first unblank the panel before entering doze mode
 		 */
 		if (mdss_fb_is_power_off(mfd) && mfd->mdp.on_fnc) {
-			pr_debug("off --> doze. switch to on first\n");
-			ret = mdss_fb_unblank_sub(mfd);
+			if (mfd->lp_coff) {
+				mfd->lp_coff = 0;
+			} else {
+				pr_debug("off --> doze. switch to on first\n");
+				ret = mdss_fb_unblank_sub(mfd);
+			}
 		}
 
 		/* Enter doze mode only if unblank succeeded */
@@ -1302,6 +1316,9 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 				mdss_fb_release_fences(mfd);
 			mfd->op_enable = true;
 			complete(&mfd->power_off_comp);
+			mfd->lp_coff = 1;
+			schedule_delayed_work(&mfd->lp_cooloff_work,
+					msecs_to_jiffies(FB_LP_COOLOFF));
 		}
 		break;
 	}
