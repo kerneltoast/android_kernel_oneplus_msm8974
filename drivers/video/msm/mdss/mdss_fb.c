@@ -1255,7 +1255,6 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 		break;
 
 	case FB_BLANK_VSYNC_SUSPEND:
-		req_power_state = MDSS_PANEL_POWER_DOZE;
 		pr_debug("Doze power mode requested\n");
 
 		/*
@@ -1270,10 +1269,7 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 				ret = mdss_fb_unblank_sub(mfd);
 			}
 		}
-
-		/* Enter doze mode only if unblank succeeded */
-		if (ret)
-			break;
+		break;
 	case FB_BLANK_HSYNC_SUSPEND:
 	case FB_BLANK_NORMAL:
 	case FB_BLANK_POWERDOWN:
@@ -1336,10 +1332,9 @@ static int mdss_fb_blank(int blank_mode, struct fb_info *info)
 
 	mdss_fb_pan_idle(mfd);
 	if (mfd->op_enable == 0) {
-		if (blank_mode == FB_BLANK_UNBLANK)
+		if (blank_mode == FB_BLANK_UNBLANK ||
+			blank_mode == FB_BLANK_VSYNC_SUSPEND)
 			mfd->suspend.panel_power_state = MDSS_PANEL_POWER_ON;
-		else if (blank_mode == FB_BLANK_VSYNC_SUSPEND)
-			mfd->suspend.panel_power_state = MDSS_PANEL_POWER_DOZE;
 		else
 			mfd->suspend.panel_power_state = MDSS_PANEL_POWER_OFF;
 		return 0;
