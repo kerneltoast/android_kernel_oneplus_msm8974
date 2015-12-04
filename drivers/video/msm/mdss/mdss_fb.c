@@ -1178,6 +1178,10 @@ static int mdss_fb_unblank_sub(struct msm_fb_data_type *mfd)
 	if (!mfd)
 		return -EINVAL;
 
+#ifdef CONFIG_MACH_MSM8974_14001
+	fb_unblank_bl = FB_UNBLANK_DELAY_BL_TWO_FRAMES;
+#endif
+
 	/* Start Display thread */
 	if (mfd->disp_thread == NULL) {
 		ret = mdss_fb_start_disp_thread(mfd);
@@ -1247,9 +1251,6 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 		pr_debug("unblank called. cur pwr state=%d\n", cur_power_state);
-#ifdef CONFIG_MACH_MSM8974_14001
-		fb_unblank_bl = FB_UNBLANK_DELAY_BL_TWO_FRAMES;
-#endif
 		ret = mdss_fb_unblank_sub(mfd);
 		break;
 
