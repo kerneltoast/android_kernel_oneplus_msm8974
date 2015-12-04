@@ -68,7 +68,6 @@ enum {
 enum {
 	MDSS_PANEL_POWER_OFF = 0,
 	MDSS_PANEL_POWER_ON,
-	MDSS_PANEL_POWER_DOZE,
 };
 
 enum {
