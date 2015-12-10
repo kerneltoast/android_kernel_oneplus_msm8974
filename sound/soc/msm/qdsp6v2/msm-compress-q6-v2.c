@@ -20,6 +20,7 @@
 #include <linux/wait.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/wakelock.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -170,6 +171,8 @@ struct msm_compr_audio_effects {
 struct msm_compr_dec_params {
 	struct snd_dec_ddp ddp_params;
 };
+
+static struct wake_lock compr_wake_lock;
 
 static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 				uint32_t volume_l, uint32_t volume_r)
@@ -877,6 +880,9 @@ static int msm_compr_open(struct snd_compr_stream *cstream)
 		pr_err("%s: Unsupported stream type", __func__);
 	}
 
+	wake_lock_init(&compr_wake_lock, WAKE_LOCK_SUSPEND, "msm_compr_wakelock");
+	wake_lock(&compr_wake_lock);
+
 	return 0;
 }
 
@@ -972,6 +978,8 @@ static int msm_compr_free(struct snd_compr_stream *cstream)
 	kfree(pdata->audio_effects[soc_prtd->dai_link->be_id]);
 	kfree(pdata->dec_params[soc_prtd->dai_link->be_id]);
 	kfree(prtd);
+
+	wake_lock_destroy(&compr_wake_lock);
 
 	return 0;
 }
