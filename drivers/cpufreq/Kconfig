@@ -210,7 +210,7 @@ config CPU_INPUT_BOOST
 	bool "CPU Input Boost"
 	help
 	  Boosts the CPU on touchscreen and touchpad input. Boost frequencies and
-	  durations are calculated automatically.
+	  duration are configured via sysfs (/sys/kernel/cpu_input_boost/*).
 
 menu "x86 CPU frequency scaling drivers"
 depends on X86
