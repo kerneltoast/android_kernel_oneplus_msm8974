@@ -2324,13 +2324,14 @@ static void synaptics_rmi4_sensor_wake(struct synaptics_rmi4_data *rmi4_data)
 static void synaptics_rmi4_suspend(struct synaptics_rmi4_data *rmi4_data)
 {
 	synaptics_rmi4_irq_enable(rmi4_data, false);
-	synaptics_rmi4_free_fingers(rmi4_data);
 
 	if (atomic_read(&rmi4_data->syna_use_gesture)) {
+		synaptics_rmi4_reinit_device(rmi4_data);
 		synaptics_enable_gesture(rmi4_data, true);
 		synaptics_enable_irqwake(rmi4_data, true);
 		synaptics_rmi4_irq_enable(rmi4_data, true);
 	} else {
+		synaptics_rmi4_free_fingers(rmi4_data);
 		synaptics_rmi4_sensor_sleep(rmi4_data);
 	}
 
@@ -2353,12 +2354,11 @@ static void synaptics_rmi4_resume(struct synaptics_rmi4_data *rmi4_data)
 		synaptics_rmi4_irq_enable(rmi4_data, false);
 		synaptics_enable_irqwake(rmi4_data, false);
 		synaptics_enable_gesture(rmi4_data, false);
-		synaptics_rmi4_free_fingers(rmi4_data);
 	} else {
 		synaptics_rmi4_sensor_wake(rmi4_data);
-		synaptics_rmi4_reinit_device(rmi4_data);
 	}
 
+	synaptics_rmi4_reinit_device(rmi4_data);
 	synaptics_rmi4_irq_enable(rmi4_data, true);
 	atomic_set(&rmi4_data->ts_awake, 1);
 }
