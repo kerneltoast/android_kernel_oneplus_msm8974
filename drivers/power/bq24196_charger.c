@@ -60,7 +60,7 @@ struct bq24196_device_info *bq24196_di;
 struct i2c_client *bq24196_client;
 
 /* Ensure I2C bus is active for OTG */
-static bool suspended;
+static bool suspended = false;
 static DECLARE_COMPLETION(resume_done);
 static DEFINE_MUTEX(resume_lock);
 
