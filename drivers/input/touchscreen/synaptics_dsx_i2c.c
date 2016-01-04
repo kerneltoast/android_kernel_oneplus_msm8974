@@ -995,8 +995,11 @@ static unsigned char synaptics_rmi4_update_gesture2(unsigned char *gesture,
 
 		case SYNA_ONE_FINGER_DOUBLE_TAP:
 			gesturemode = DouTap;
-			if (atomic_read(&syna_rmi4_data->double_tap_enable))
+			if (atomic_read(&syna_rmi4_data->double_tap_enable) &&
+				!atomic_read(&syna_rmi4_data->double_tap_processed)) {
 				keyvalue = KEY_POWER;
+				atomic_set(&syna_rmi4_data->double_tap_processed, 1);
+			}
 			break;
 
 		case SYNA_ONE_FINGER_DIRECTION:
@@ -2359,6 +2362,8 @@ static void synaptics_rmi4_resume(struct synaptics_rmi4_data *rmi4_data)
 
 	synaptics_rmi4_irq_enable(rmi4_data, true);
 	atomic_set(&rmi4_data->ts_awake, 1);
+
+	atomic_set(&syna_rmi4_data->double_tap_processed, 0);
 }
 
 static void synaptics_rmi4_pm_main(struct work_struct *work)
