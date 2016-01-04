@@ -2335,6 +2335,8 @@ static void synaptics_rmi4_suspend(struct synaptics_rmi4_data *rmi4_data)
 	}
 
 	atomic_set(&rmi4_data->ts_awake, 0);
+
+	pm_relax(&rmi4_data->i2c_client->dev);
 }
 
 /**
@@ -2399,6 +2401,8 @@ static int fb_notifier_callback(struct notifier_block *nb,
 		break;
 	default:
 		if (atomic_read(&rmi4_data->ts_awake)) {
+			/* Don't allow device to sleep while suspend worker is running */
+			pm_stay_awake(&rmi4_data->i2c_client->dev);
 			cancel_work_sync(&rmi4_data->syna_pm_work);
 			atomic_set(&rmi4_data->resume_suspend, 0);
 			queue_work(rmi4_data->syna_pm_wq, &rmi4_data->syna_pm_work);
