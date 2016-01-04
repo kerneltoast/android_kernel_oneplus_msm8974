@@ -1297,9 +1297,28 @@ static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data, 
 static irqreturn_t synaptics_rmi4_irq(int irq, void *data)
 {
 	struct synaptics_rmi4_data *rmi4_data = data;
-	ktime_t timestamp = ktime_get();
+	unsigned long flags;
+	bool i2c_active;
 
-	synaptics_rmi4_sensor_report(rmi4_data, timestamp);
+	if (!atomic_read(&rmi4_data->ts_awake)) {
+		spin_lock_irqsave(&rmi4_data->isr_lock, flags);
+		i2c_active = rmi4_data->i2c_awake;
+		spin_unlock_irqrestore(&rmi4_data->isr_lock, flags);
+
+		/* I2C bus must be active */
+		if (!i2c_active) {
+			__pm_stay_awake(&rmi4_data->syna_isr_ws);
+			/* Wait for I2C to resume before proceeding */
+			INIT_COMPLETION(rmi4_data->i2c_resume);
+			wait_for_completion_timeout(&rmi4_data->i2c_resume,
+							msecs_to_jiffies(30));
+		}
+	}
+
+	synaptics_rmi4_sensor_report(rmi4_data, ktime_get());
+
+	if (rmi4_data->syna_isr_ws.active)
+		__pm_relax(&rmi4_data->syna_isr_ws);
 
 	return IRQ_HANDLED;
 }
@@ -2419,6 +2438,35 @@ static int fb_notifier_callback(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+static int synaptics_i2c_resume(struct device *dev)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&syna_rmi4_data->isr_lock, flags);
+	syna_rmi4_data->i2c_awake = true;
+	spin_unlock_irqrestore(&syna_rmi4_data->isr_lock, flags);
+
+	complete(&syna_rmi4_data->i2c_resume);
+
+	return 0;
+}
+
+static int synaptics_i2c_suspend(struct device *dev)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&syna_rmi4_data->isr_lock, flags);
+	syna_rmi4_data->i2c_awake = false;
+	spin_unlock_irqrestore(&syna_rmi4_data->isr_lock, flags);
+
+	return 0;
+}
+
+static const struct dev_pm_ops synaptics_i2c_pm_ops = {
+	.resume  = synaptics_i2c_resume,
+	.suspend = synaptics_i2c_suspend,
+};
+
 /**
  * synaptics_rmi4_probe()
  *
@@ -2544,6 +2592,11 @@ static int __devinit synaptics_rmi4_probe(struct i2c_client *client,
 	synaptics_rmi4_init_touchpanel_proc();
 	atomic_set(&rmi4_data->sensor_awake, 1);
 
+	init_completion(&rmi4_data->i2c_resume);
+	spin_lock_init(&rmi4_data->isr_lock);
+	wakeup_source_init(&rmi4_data->syna_isr_ws, "synaptics-isr");
+	rmi4_data->i2c_awake = true;
+
 	ret = request_threaded_irq(rmi4_data->irq, NULL,
 			synaptics_rmi4_irq, platform_data->irq_flags,
 			"synaptics-rmi-ts", rmi4_data);
@@ -2666,6 +2719,7 @@ static struct i2c_driver synaptics_rmi4_driver = {
 		.name = "synaptics-rmi-ts",
 		.owner = THIS_MODULE,
 		.of_match_table = synaptics_of_match_table,
+		.pm = &synaptics_i2c_pm_ops,
 	},
 	.probe = synaptics_rmi4_probe,
 	.remove = __devexit_p(synaptics_rmi4_remove),
