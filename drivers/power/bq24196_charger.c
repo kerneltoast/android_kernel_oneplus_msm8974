@@ -62,7 +62,7 @@ struct i2c_client *bq24196_client;
 /* Ensure I2C bus is active for OTG */
 static bool suspended = false;
 static DECLARE_COMPLETION(resume_done);
-static DEFINE_MUTEX(resume_lock);
+static DEFINE_SPINLOCK(resume_lock);
 
 static int bq24196_read_i2c(struct bq24196_device_info *di,u8 reg,u8 length,char *buf)
 {
@@ -598,26 +598,29 @@ MODULE_DEVICE_TABLE(i2c, bq24196_id);
 
 static void bq24196_suspended(bool state)
 {
-	mutex_lock(&resume_lock);
+	unsigned long flags;
+
+	spin_lock_irqsave(&resume_lock, flags);
 	suspended = state;
-	mutex_unlock(&resume_lock);
+	spin_unlock_irqrestore(&resume_lock, flags);
 
 	if (!suspended)
-		complete(&resume_done);
+		complete_all(&resume_done);
 }
 
 void bq24196_wait_for_resume(void)
 {
+	unsigned long flags;
 	bool asleep;
 
-	mutex_lock(&resume_lock);
+	spin_lock_irqsave(&resume_lock, flags);
 	asleep = suspended;
-	mutex_unlock(&resume_lock);
+	spin_unlock_irqrestore(&resume_lock, flags);
 
 	if (asleep) {
 		INIT_COMPLETION(resume_done);
 		wait_for_completion_timeout(&resume_done,
-					msecs_to_jiffies(100));
+					msecs_to_jiffies(50));
 	}
 }
 
