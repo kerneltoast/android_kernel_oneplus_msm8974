@@ -564,6 +564,10 @@ extern void mcu_en_gpio_set(int value);//sjc0623 add
 static void
 qpnp_chg_set_appropriate_battery_current(struct qpnp_chg_chip *chip);
 
+#ifdef CONFIG_BQ24196_CHARGER
+extern void bq24196_wait_for_resume(void);
+#endif
+
 static struct of_device_id qpnp_charger_match_table[] = {
 	{ .compatible = QPNP_CHARGER_DEV_NAME, },
 	{}
@@ -3737,6 +3741,9 @@ qpnp_batt_external_power_changed(struct power_supply *psy)
 		pr_info("%s chg done\n",__func__);
 		return ;
 	}	
+
+	/* Wait until I2C bus is active */
+	bq24196_wait_for_resume();
 #endif
 /*OPPO 2013-10-24 liaofuchun add end*/
 	if (!chip->bms_psy)
@@ -4451,6 +4458,12 @@ static void qpnp_chg_ext_charger_hwinit(struct qpnp_chg_chip *chip)
 		return ;
 	}
 #endif
+
+#ifdef CONFIG_BQ24196_CHARGER
+	/* Wait until I2C bus is active */
+	bq24196_wait_for_resume();
+#endif
+
 /* OPPO 2014-05-21 liaofuchun modify end*/
 
 /* OPPO 2014-03-11 sjc Modify begin for OTG Vbus problem */
