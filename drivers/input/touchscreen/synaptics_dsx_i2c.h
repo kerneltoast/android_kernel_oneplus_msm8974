@@ -256,7 +256,6 @@ struct synaptics_rmi4_data {
 	struct notifier_block fb_notif;
 	atomic_t syna_use_gesture;
 	atomic_t double_tap_enable;
-	atomic_t double_tap_processed;
 	atomic_t camera_enable;
 	atomic_t music_enable;
 	atomic_t flashlight_enable;
