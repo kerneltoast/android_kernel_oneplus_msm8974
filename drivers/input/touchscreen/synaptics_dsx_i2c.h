@@ -271,6 +271,7 @@ struct synaptics_rmi4_data {
 	spinlock_t isr_lock;
 	bool i2c_awake;
 	struct completion i2c_resume;
+	u64 last_gesture_time;
 };
 
 enum exp_fn {
