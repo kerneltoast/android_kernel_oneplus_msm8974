@@ -463,6 +463,8 @@ exit:
 #define SYNA_ADDR_F12_2D_CTRL23      0x1D
 #define SYNA_ADDR_F12_2D_CTRL10      0x16
 
+#define SYNA_GESTURE_DELAY_MS 1500 // time to wait in between gestures
+
 extern int rmi4_fw_module_init(bool insert);
 
 static struct synaptics_rmi4_data *syna_rmi4_data;
@@ -1073,13 +1075,18 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
 	unsigned char gestureext[25];
 	unsigned char keyvalue;
 	unsigned int  finger_info = 0;
+	u64 now = ktime_to_ms(ktime_get());
 
 	fingers_to_process = fhandler->num_of_data_points;
 	data_addr = fhandler->full_addr.data_base;
 	extra_data = (struct synaptics_rmi4_f12_extra_data *)fhandler->extra;
 	size_of_2d_data = sizeof(struct synaptics_rmi4_f12_finger_data);
 
-	if (atomic_read(&rmi4_data->syna_use_gesture)) {
+	if (atomic_read(&rmi4_data->syna_use_gesture) &&
+		(now - rmi4_data->last_gesture_time > SYNA_GESTURE_DELAY_MS) &&
+		!atomic_read(&rmi4_data->resume_suspend)) {
+		rmi4_data->last_gesture_time = now;
+
 		synaptics_rmi4_i2c_read(rmi4_data,
 				SYNA_ADDR_GESTURE_OFFSET,
 				gesture,
