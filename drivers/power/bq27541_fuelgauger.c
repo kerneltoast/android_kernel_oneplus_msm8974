@@ -147,14 +147,11 @@ extern int pic16f_fw_update(bool pull96);
 /* OPPO 2013-08-24 wangjc Add begin for filter soc. */
 #ifdef CONFIG_MACH_MSM8974_14001
 #define CAPACITY_SALTATE_COUNTER 4
-#define CAPACITY_SALTATE_COUNTER_NOT_CHARGING	13//40sec
-#ifdef CONFIG_MACH_MSM8974_14001
-/* yangfangbiao@oneplus.cn, 2015/01/06  Add for  sync with KK charge standard  */
-#define CAPACITY_SALTATE_COUNTER_60				20//40	1min
-#define CAPACITY_SALTATE_COUNTER_95				50//60	2.5min
-#define CAPACITY_SALTATE_COUNTER_FULL			100//120	5min
-#define CAPACITY_SALTATE_COUNTER_CHARGING_TERM	20//30	1min
-#endif /*CONFIG_MACH_MSM8974_14001*/
+#define CAPACITY_SALTATE_COUNTER_NOT_CHARGING  20
+#define CAPACITY_SALTATE_COUNTER_80  30
+#define CAPACITY_SALTATE_COUNTER_90  40
+#define CAPACITY_SALTATE_COUNTER_95  60
+#define CAPACITY_SALTATE_COUNTER_FULL  120
 
 
 #define	SOC_SHUTDOWN_VALID_LIMITS	20 /* yangfangbiao@oneplus.cn, 2015/01/06  Add for  sync with KK charge standard  */
@@ -332,20 +329,16 @@ static int bq27541_remaining_capacity(struct bq27541_device_info *di)
 	return cap;
 }
 
-static int bq27541_battery_voltage(struct bq27541_device_info *di);
 extern int get_charging_status(void);
-extern int fuelgauge_battery_temp_region_get(void);
 static int bq27541_soc_calibrate(struct bq27541_device_info *di, int soc)
 {
 	union power_supply_propval ret = {0,};
 	unsigned int soc_calib;
 	int counter_temp = 0;
-	static int charging_status = 0;//sjc1121
-	static int charging_status_pre = 0; /* yangfangbiao@oneplus.cn, 2015/01/06  Modify for  sync with KK charge standard  */
-	int soc_load;//sjc1121
+	int soc_load;
 	int soc_temp;
-	
-	if(!di->batt_psy){
+
+	if (!di->batt_psy){
 		di->batt_psy = power_supply_get_by_name("battery");
 
 		//get the soc before reboot
@@ -376,80 +369,47 @@ static int bq27541_soc_calibrate(struct bq27541_device_info *di, int soc)
 
 	soc_temp  = di->soc_pre;
 
-	if(di->batt_psy){
+	if (di->batt_psy) {
 		ret.intval = get_charging_status();//sjc20150104
-	
-		if(ret.intval == POWER_SUPPLY_STATUS_CHARGING || ret.intval == POWER_SUPPLY_STATUS_FULL) { // is charging
-			charging_status = 1;
-		} else {
-			charging_status = 0;
-		}
-		if (charging_status ^ charging_status_pre) {
-			charging_status_pre = charging_status;
-			di->saltate_counter = 0;
-		}
-		if (charging_status) { // is charging
-/* yangfangbiao@oneplus.cn, 2015/01/06  Modify begin  for  sync with KK charge standard  */
-			if (ret.intval == POWER_SUPPLY_STATUS_FULL) {
-				soc_calib = di->soc_pre;
-				if (di->soc_pre < 100
-						&& (fuelgauge_battery_temp_region_get() == CV_BATTERY_TEMP_REGION__LITTLE_COOL
-						|| fuelgauge_battery_temp_region_get() == CV_BATTERY_TEMP_REGION__NORMAL)) {//sjc20150104
-					if (di->saltate_counter < CAPACITY_SALTATE_COUNTER_CHARGING_TERM) {
-						di->saltate_counter++;
-					} else {
-						soc_calib = di->soc_pre + 1;
-						di->saltate_counter = 0;
-					}
-				}
-			} else {
-/* yangfangbiao@oneplus.cn, 2015/01/06  Modify end for  sync with KK charge standard  */
-				if(abs(soc - di->soc_pre) > 0) {
+
+		if (ret.intval == POWER_SUPPLY_STATUS_CHARGING || ret.intval == POWER_SUPPLY_STATUS_FULL) { // is charging
+			if (abs(soc - di->soc_pre) >= 2) {
 				di->saltate_counter++;
 				if(di->saltate_counter < CAPACITY_SALTATE_COUNTER)
 					return di->soc_pre;
 				else
 					di->saltate_counter = 0;
-			}
-			else
+			} else
 				di->saltate_counter = 0;
-		
-			if(soc > di->soc_pre) {
+
+			if (soc > di->soc_pre)
 				soc_calib = di->soc_pre + 1;
-			} else if(soc < (di->soc_pre - 2)) {
-				/* jingchun.wang@Onlinerd.Driver, 2013/04/14  Add for allow soc fail when charging. */
+			else if (soc < (di->soc_pre - 2))
 				soc_calib = di->soc_pre - 1;
-			} else {
+			else
 				soc_calib = di->soc_pre;
-			}
 			
 			/* jingchun.wang@Onlinerd.Driver, 2013/12/12  Add for set capacity to 100 when full in normal temp */
-			if(ret.intval == POWER_SUPPLY_STATUS_FULL) {
-				if(soc > 94) {
+			if (ret.intval == POWER_SUPPLY_STATUS_FULL) {
+				if (soc > 94) {
 					soc_calib = 100;
 				}
 			}
-		}
-		} else { // not charging
-			if ((abs(soc - di->soc_pre) >  0) 
-					|| (di->batt_vol_pre <= 3300 * 1000 && di->batt_vol_pre > 2500 * 1000)) {//sjc1118 add for batt_vol is too low but soc is not jumping
+		} else {
+			// not charging
+			if ((abs(soc - di->soc_pre) >= 2) || (di->soc_pre > 80)) {
 				di->saltate_counter++;
-				if(di->soc_pre == 100) {
-					counter_temp = CAPACITY_SALTATE_COUNTER_FULL;//t>=5min
+				if (di->soc_pre == 100) {
+					counter_temp = CAPACITY_SALTATE_COUNTER_FULL;//6
 				} else if (di->soc_pre > 95) {
-					counter_temp = CAPACITY_SALTATE_COUNTER_95;///t>=2.5min
-				} else if (di->soc_pre > 60) {
-					counter_temp = CAPACITY_SALTATE_COUNTER_60;//t>=1min
+					counter_temp = CAPACITY_SALTATE_COUNTER_95;//3
+				} else if (di->soc_pre > 90) {
+					counter_temp = CAPACITY_SALTATE_COUNTER_90;//2
+				} else if (di->soc_pre > 80) {
+					counter_temp = CAPACITY_SALTATE_COUNTER_80;//1.5
 				} else {
-					counter_temp = CAPACITY_SALTATE_COUNTER_NOT_CHARGING;//t>=40sec
+					counter_temp = CAPACITY_SALTATE_COUNTER_NOT_CHARGING;//1
 				}
-				/* sjc1020, when batt_vol is too low(and soc is jumping), decrease faster to avoid dead battery shutdown */
-				if (di->batt_vol_pre <= 3300 * 1000 && di->batt_vol_pre > 2500 * 1000 && di->soc_pre <= 10) {
-					if (bq27541_battery_voltage(di) <= 3300 * 1000 && bq27541_battery_voltage(di) > 2500 * 1000) {//check again
-						counter_temp = CAPACITY_SALTATE_COUNTER - 1;//about 9s
-					}
-				}
-				
 				if(di->saltate_counter < counter_temp)
 					return di->soc_pre;
 				else
@@ -457,10 +417,8 @@ static int bq27541_soc_calibrate(struct bq27541_device_info *di, int soc)
 			}
 			else
 				di->saltate_counter = 0;
-			
-			if(soc < di->soc_pre)
-				soc_calib = di->soc_pre - 1;
-			else if (di->batt_vol_pre <= 3300 * 1000 && di->batt_vol_pre > 2500 * 1000 && di->soc_pre > 0)//sjc1118 add for batt_vol is too low but soc is not jumping
+
+			if (soc < di->soc_pre)
 				soc_calib = di->soc_pre - 1;
 			else
 				soc_calib = di->soc_pre;
@@ -468,15 +426,15 @@ static int bq27541_soc_calibrate(struct bq27541_device_info *di, int soc)
 	} else {
 		soc_calib = soc;
 	}
-	if(soc_calib > 100)
+	if (soc >= 100)
 		soc_calib = 100;
 	di->soc_pre = soc_calib;
 
-	if(soc_temp  !=  soc_calib) {
+	if (soc_temp  !=  soc_calib) {
 		//store when soc changed
 		backup_soc_ex(soc_calib);
-		pr_info("soc:%d, soc_calib:%d\n", soc, soc_calib);
 	}
+
 	return soc_calib;
 }
 
