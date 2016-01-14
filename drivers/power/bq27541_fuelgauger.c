@@ -89,7 +89,9 @@
 #define ZERO_DEGREES_CELSIUS_IN_TENTH_KELVIN   2731
 #define BQ27541_INIT_DELAY   ((HZ)*1)
 
+#define BQ27541_CHG_CALIB_CNT   2 /* Num of calibration cycles after charging */
 #define BQ27541_CHG_DELAY_MS   55800 /* Required delay between raising pct. */
+#define BQ27541_SOC_CRIT   41 /* SOC threshold to stop limiting SOC drop rate */
 
 static DEFINE_MUTEX(i2c_read_mutex);
 static DEFINE_SPINLOCK(i2c_pm_lock);
@@ -98,6 +100,7 @@ static DECLARE_COMPLETION(i2c_resume_done);
 /* Back up and use old data if raw measurement fails */
 struct bq27541_old_data {
 	int curr;
+	int is_charging;
 	int mvolts;
 	int soc;
 	int temp;
@@ -284,9 +287,19 @@ static int bq27541_battery_soc(struct bq27541_device_info *di)
 		} else {
 			soc = di->old_data->soc;
 		}
-	} else if (soc < di->old_data->soc && (soc > 41)) {
-		/* Scale down 1% at a time when above 41% */
-		soc = di->old_data->soc - 1;
+		di->old_data->is_charging = BQ27541_CHG_CALIB_CNT;
+	} else if (soc < di->old_data->soc && (soc > BQ27541_SOC_CRIT)) {
+		/*
+		 * Don't force SOC to scale down by 1% during first
+		 * BQ27541_CHG_CALIB_CNT discharge heartbeats after
+		 * charging. This will allow SOC to quickly drop to
+		 * its true value if needed.
+		 */
+		if (di->old_data->is_charging)
+			di->old_data->is_charging--;
+		else
+			/* Scale down 1% at a time when above SOC crit */
+			soc = di->old_data->soc - 1;
 	}
 
 	di->old_data->soc = soc;
