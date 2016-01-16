@@ -86,5 +86,6 @@ void qpnp_battery_gauge_unregister(struct qpnp_battery_gauge *batt_gauge);
 void qpnp_external_charger_register(struct qpnp_external_charger *external_charger);
 void qpnp_external_charger_unregister(struct qpnp_external_charger *external_charger);
 
+int qpnp_get_charging_status(void);
 
 #endif /* __QPNP_CHARGER_H__ */

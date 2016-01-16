@@ -3478,7 +3478,7 @@ get_prop_batt_status(struct qpnp_chg_chip *chip)
 	}
 }
 
-int get_charging_status(void)//sjc20150104
+int qpnp_get_charging_status(void)//sjc20150104
 {
 	if (!g_chip) 
 		return POWER_SUPPLY_STATUS_DISCHARGING;
