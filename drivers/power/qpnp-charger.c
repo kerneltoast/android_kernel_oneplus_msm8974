@@ -3887,7 +3887,7 @@ qpnp_batt_power_get_property(struct power_supply *psy,
 		if (val->intval == POWER_SUPPLY_STATUS_FULL
 				&& (qpnp_battery_temp_region_get(chip) == CV_BATTERY_TEMP_REGION__LITTLE_COOL
 				|| qpnp_battery_temp_region_get(chip) == CV_BATTERY_TEMP_REGION__NORMAL)
-				&& get_prop_capacity(chip) < 95) {//sjc20150104
+				&& get_prop_capacity(chip) < 100) {//sjc20150104
 			val->intval = POWER_SUPPLY_STATUS_CHARGING;
 		}
 /* yangfangbiao@oneplus.cn, 2015/01/06  Add end for  sync with KK charge standard  */
