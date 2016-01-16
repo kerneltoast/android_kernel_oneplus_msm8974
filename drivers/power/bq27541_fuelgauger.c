@@ -276,7 +276,19 @@ static int bq27541_battery_soc(struct bq27541_device_info *di)
 		di->old_data->soc = soc;
 
 	if (soc > di->old_data->soc) {
-		di->old_data->is_charging = BQ27541_CHG_CALIB_CNT;
+		/*
+		 * Don't raise SOC while discharging, unless this is
+		 * a calibration cycle.
+		 */
+		int chg_status = qpnp_get_charging_status();
+		if (chg_status == POWER_SUPPLY_STATUS_DISCHARGING) {
+			if (di->old_data->is_charging)
+				di->old_data->is_charging--;
+			else
+				soc = di->old_data->soc;
+		} else {
+			di->old_data->is_charging = BQ27541_CHG_CALIB_CNT;
+		}
 	} else if (soc < di->old_data->soc && (soc > BQ27541_SOC_CRIT)) {
 		/*
 		 * Don't force SOC to scale down by 1% during first
