@@ -89,7 +89,7 @@
 #define ZERO_DEGREES_CELSIUS_IN_TENTH_KELVIN   2731
 #define BQ27541_INIT_DELAY   ((HZ)*1)
 
-#define BQ27541_CHG_CALIB_CNT   2 /* Num of calibration cycles after charging */
+#define BQ27541_CHG_CALIB_CNT   3 /* Num of calibration cycles after charging */
 #define BQ27541_SOC_CRIT   41 /* SOC threshold to stop limiting SOC drop rate */
 
 static DEFINE_MUTEX(i2c_read_mutex);
