@@ -90,7 +90,6 @@
 #define BQ27541_INIT_DELAY   ((HZ)*1)
 
 #define BQ27541_CHG_CALIB_CNT   2 /* Num of calibration cycles after charging */
-#define BQ27541_CHG_DELAY_MS   55800 /* Required delay between raising pct. */
 #define BQ27541_SOC_CRIT   41 /* SOC threshold to stop limiting SOC drop rate */
 
 static DEFINE_MUTEX(i2c_read_mutex);
@@ -104,7 +103,6 @@ struct bq27541_old_data {
 	int mvolts;
 	int soc;
 	int temp;
-	u64 chg_time;
 };
 
 struct bq27541_device_info {
@@ -277,16 +275,7 @@ static int bq27541_battery_soc(struct bq27541_device_info *di)
 	if (!di->old_data->soc)
 		di->old_data->soc = soc;
 
-	/* Scale up 1% at a time when charging */
 	if (soc > di->old_data->soc) {
-		u64 now = ktime_to_ms(ktime_get());
-		/* Require delay between each percentage increase */
-		if ((now - di->old_data->chg_time) > BQ27541_CHG_DELAY_MS) {
-			di->old_data->chg_time = now;
-			soc = di->old_data->soc + 1;
-		} else {
-			soc = di->old_data->soc;
-		}
 		di->old_data->is_charging = BQ27541_CHG_CALIB_CNT;
 	} else if (soc < di->old_data->soc && (soc > BQ27541_SOC_CRIT)) {
 		/*
