@@ -17,7 +17,6 @@
 #include <linux/cpufreq.h>
 #include <linux/fb.h>
 #include <linux/input.h>
-#include <linux/module.h>
 #include <linux/slab.h>
 
 #define FB_BOOST_MS 900
@@ -130,7 +129,7 @@ static void __cpuinit ib_boost_main(struct work_struct *work)
 	 * the 2nd CPU to boost is offline at this point in time, so the boost
 	 * notifier will handle boosting the 2nd CPU if/when it comes online.
 	 *
-	 * Add 10ms to the CPU0's duration to prevent trivial racing with the
+	 * Add 10ms to CPU0's duration to prevent trivial racing with the
 	 * 2nd CPU's restoration worker (if a 2nd CPU is indeed boosted).
 	 */
 	boost_cpu0(ib_adj_duration_ms + 10);
@@ -478,7 +477,3 @@ err:
 	return ret;
 }
 late_initcall(cpu_ib_init);
-
-MODULE_AUTHOR("Sultanxda <sultanxda@gmail.com>");
-MODULE_DESCRIPTION("CPU Input Boost");
-MODULE_LICENSE("GPLv2");
