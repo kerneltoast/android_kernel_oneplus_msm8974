@@ -445,6 +445,8 @@ static int bq27541_battery_probe(struct i2c_client *client,
 	di->dev = &client->dev;
 	di->client = client;
 
+	di->old_data->is_charging = BQ27541_CHG_CALIB_CNT;
+
 	bq27541_di = di;
 
 	/*
