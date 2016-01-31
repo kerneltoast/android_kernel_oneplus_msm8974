@@ -269,6 +269,13 @@ static int bq27541_battery_soc(struct bq27541_device_info *di)
 			soc--;
 	}
 
+	/* Double check before reporting 0% SOC */
+	if (di->old_data->soc && !soc) {
+		ret = di->old_data->soc;
+		di->old_data->soc = soc;
+		return ret;
+	}
+
 	if (!di->old_data->soc)
 		di->old_data->soc = soc;
 
