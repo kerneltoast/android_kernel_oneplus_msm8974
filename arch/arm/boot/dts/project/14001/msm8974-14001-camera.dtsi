@@ -19,7 +19,7 @@
 };
 
 &pm8941_torch {
-	qcom,current = <53>;
+	qcom,current = <130>;
 };
 
 &soc {
