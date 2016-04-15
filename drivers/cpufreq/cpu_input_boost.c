@@ -19,7 +19,7 @@
 #include <linux/input.h>
 #include <linux/slab.h>
 
-#define FB_BOOST_MS 900
+#define FB_BOOST_MS 1100
 
 enum boost_status {
 	UNBOOST,
