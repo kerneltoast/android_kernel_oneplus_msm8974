@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2015, Sultanxda <sultanxda@gmail.com>
+ * Copyright (C) 2014-2016, Sultanxda <sultanxda@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +37,7 @@ static struct workqueue_struct *boost_wq;
 static struct work_struct fb_boost_work;
 static struct delayed_work fb_unboost_work;
 static struct work_struct ib_boost_work;
+static spinlock_t boost_lock;
 
 static bool ib_running;
 static enum boost_status fb_boost;
@@ -48,7 +49,31 @@ static unsigned int ib_freq[2];
 static unsigned int ib_nr_cpus_boosted;
 static unsigned int ib_nr_cpus_to_boost;
 
-/* Boost function for input boost (only for CPU0) */
+static bool fb_boost_active(void)
+{
+	bool ret;
+
+	spin_lock(&boost_lock);
+	ret = fb_boost;
+	spin_unlock(&boost_lock);
+
+	return ret;
+}
+
+static void set_ib_state(bool state)
+{
+	spin_lock(&boost_lock);
+	ib_running = state;
+	spin_unlock(&boost_lock);
+}
+
+static void set_fb_boost_state(enum boost_status state)
+{
+	spin_lock(&boost_lock);
+	fb_boost = state;
+	spin_unlock(&boost_lock);
+}
+
 static void boost_cpu0(unsigned int duration_ms)
 {
 	struct boost_policy *b = &per_cpu(boost_info, 0);
@@ -89,7 +114,7 @@ static void unboost_all_cpus(void)
 	}
 	put_online_cpus();
 
-	ib_running = false;
+	set_ib_state(false);
 }
 
 /* Stops everything and unboosts all CPUs */
@@ -99,7 +124,7 @@ static void stop_all_boosts(void)
 	cancel_work_sync(&fb_boost_work);
 	cancel_work_sync(&ib_boost_work);
 
-	fb_boost = UNBOOST;
+	set_fb_boost_state(UNBOOST);
 	unboost_all_cpus();
 }
 
@@ -128,11 +153,8 @@ static void __cpuinit ib_boost_main(struct work_struct *work)
 	 * Only boost CPU0 from here. More than one CPU is only boosted when
 	 * the 2nd CPU to boost is offline at this point in time, so the boost
 	 * notifier will handle boosting the 2nd CPU if/when it comes online.
-	 *
-	 * Add 10ms to CPU0's duration to prevent trivial racing with the
-	 * 2nd CPU's restoration worker (if a 2nd CPU is indeed boosted).
 	 */
-	boost_cpu0(ib_adj_duration_ms + 10);
+	boost_cpu0(ib_adj_duration_ms);
 
 	put_online_cpus();
 }
@@ -154,7 +176,7 @@ static void __cpuinit ib_unboost_main(struct work_struct *work)
 	}
 
 	/* All input boosts are done, ready to accept new boosts now */
-	ib_running = false;
+	set_ib_state(false);
 }
 
 /* Framebuffer-boost worker */
@@ -163,7 +185,7 @@ static void __cpuinit fb_boost_main(struct work_struct *work)
 	unsigned int cpu;
 
 	/* All CPUs will be boosted to policy->max */
-	fb_boost = BOOST;
+	set_fb_boost_state(BOOST);
 
 	/* Immediately boost the online CPUs to policy->max */
 	get_online_cpus();
@@ -178,7 +200,7 @@ static void __cpuinit fb_boost_main(struct work_struct *work)
 /* Framebuffer-unboost worker */
 static void __cpuinit fb_unboost_main(struct work_struct *work)
 {
-	fb_boost = UNBOOST;
+	set_fb_boost_state(UNBOOST);
 	unboost_all_cpus();
 }
 
@@ -194,7 +216,7 @@ static int do_cpu_boost(struct notifier_block *nb, unsigned long val, void *data
 	if (val != CPUFREQ_ADJUST)
 		return NOTIFY_OK;
 
-	if (fb_boost) {
+	if (fb_boost_active()) {
 		policy->min = policy->max;
 		return NOTIFY_OK;
 	}
@@ -242,7 +264,7 @@ static int fb_unblank_boost(struct notifier_block *nb, unsigned long val, void *
 		return NOTIFY_OK;
 
 	/* Framebuffer boost is already in progress */
-	if (fb_boost)
+	if (fb_boost_active())
 		return NOTIFY_OK;
 
 	queue_work(boost_wq, &fb_boost_work);
@@ -258,11 +280,17 @@ static struct notifier_block fb_boost_nb = {
 static void cpu_ib_input_event(struct input_handle *handle, unsigned int type,
 		unsigned int code, int value)
 {
-	if (ib_running || !enabled || fb_boost)
+	bool do_boost;
+
+	spin_lock(&boost_lock);
+	do_boost = !ib_running && enabled && !fb_boost;
+	spin_unlock(&boost_lock);
+
+	if (!do_boost)
 		return;
 
 	/* Indicate that an input-boost event is in progress */
-	ib_running = true;
+	set_ib_state(true);
 
 	queue_work(boost_wq, &ib_boost_work);
 }
@@ -345,7 +373,9 @@ static ssize_t enabled_write(struct device *dev,
 	if (ret != 1)
 		return -EINVAL;
 
+	spin_lock(&boost_lock);
 	enabled = data;
+	spin_unlock(&boost_lock);
 
 	/* Ensure that everything is stopped when returning from here */
 	if (!enabled)
@@ -455,6 +485,8 @@ static int __init cpu_ib_init(void)
 	}
 
 	INIT_WORK(&ib_boost_work, ib_boost_main);
+
+	spin_lock_init(&boost_lock);
 
 	ret = input_register_handler(&cpu_ib_input_handler);
 	if (ret) {
