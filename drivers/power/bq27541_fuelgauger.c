@@ -109,7 +109,7 @@ struct bq27541_device_info {
 	struct device			*dev;
 	struct i2c_client		*client;
 	struct delayed_work		hw_config;
-	struct bq27541_old_data		*old_data;
+	struct bq27541_old_data		old_data;
 	bool suspended;
 };
 
@@ -208,12 +208,12 @@ static int bq27541_battery_temperature(struct bq27541_device_info *di)
 	ret = bq27541_read(BQ27541_REG_TEMP, &temp, di);
 	if (ret) {
 		dev_err(di->dev, "error reading temperature, ret: %d\n", ret);
-		return di->old_data->temp;
+		return di->old_data.temp;
 	}
 
-	di->old_data->temp = temp - ZERO_DEGREES_CELSIUS_IN_TENTH_KELVIN;
+	di->old_data.temp = temp - ZERO_DEGREES_CELSIUS_IN_TENTH_KELVIN;
 
-	return di->old_data->temp;
+	return di->old_data.temp;
 }
 
 static int bq27541_battery_voltage(struct bq27541_device_info *di)
@@ -223,12 +223,12 @@ static int bq27541_battery_voltage(struct bq27541_device_info *di)
 	ret = bq27541_read(BQ27541_REG_VOLT, &volt, di);
 	if (ret) {
 		dev_err(di->dev, "error reading voltage, ret: %d\n", ret);
-		return di->old_data->mvolts;
+		return di->old_data.mvolts;
 	}
 
-	di->old_data->mvolts = volt * 1000;
+	di->old_data.mvolts = volt * 1000;
 
-	return di->old_data->mvolts;
+	return di->old_data.mvolts;
 }
 
 static int bq27541_average_current(struct bq27541_device_info *di)
@@ -238,16 +238,16 @@ static int bq27541_average_current(struct bq27541_device_info *di)
 	ret = bq27541_read(BQ27541_REG_AI, &curr, di);
 	if (ret) {
 		dev_err(di->dev, "error reading current, ret: %d\n", ret);
-		return di->old_data->curr;
+		return di->old_data.curr;
 	}
 
 	/* Negative current */
 	if (curr & 0x8000)
 		curr = -((~(curr - 1)) & 0xFFFF);
 
-	di->old_data->curr = -curr;
+	di->old_data.curr = -curr;
 
-	return di->old_data->curr;
+	return di->old_data.curr;
 }
 
 static int bq27541_battery_soc(struct bq27541_device_info *di)
@@ -257,7 +257,7 @@ static int bq27541_battery_soc(struct bq27541_device_info *di)
 	ret = bq27541_read(BQ27541_REG_SOC, &soc, di);
 	if (ret) {
 		dev_err(di->dev, "error reading SOC, ret: %d\n", ret);
-		return di->old_data->soc;
+		return di->old_data.soc;
 	}
 
 	if (soc) {
@@ -270,46 +270,46 @@ static int bq27541_battery_soc(struct bq27541_device_info *di)
 	}
 
 	/* Double check before reporting 0% SOC */
-	if (di->old_data->soc && !soc) {
-		ret = di->old_data->soc;
-		di->old_data->soc = soc;
+	if (di->old_data.soc && !soc) {
+		ret = di->old_data.soc;
+		di->old_data.soc = soc;
 		return ret;
 	}
 
-	if (!di->old_data->soc)
-		di->old_data->soc = soc;
+	if (!di->old_data.soc)
+		di->old_data.soc = soc;
 
-	if (soc > di->old_data->soc) {
+	if (soc > di->old_data.soc) {
 		/*
 		 * Don't raise SOC while discharging, unless this is
 		 * a calibration cycle.
 		 */
 		int chg_status = qpnp_get_charging_status();
 		if (chg_status == POWER_SUPPLY_STATUS_DISCHARGING) {
-			if (di->old_data->is_charging)
-				di->old_data->is_charging--;
+			if (di->old_data.is_charging)
+				di->old_data.is_charging--;
 			else
-				soc = di->old_data->soc;
+				soc = di->old_data.soc;
 		} else {
-			di->old_data->is_charging = BQ27541_CHG_CALIB_CNT;
+			di->old_data.is_charging = BQ27541_CHG_CALIB_CNT;
 		}
-	} else if (soc < di->old_data->soc && (soc > BQ27541_SOC_CRIT)) {
+	} else if (soc < di->old_data.soc && (soc > BQ27541_SOC_CRIT)) {
 		/*
 		 * Don't force SOC to scale down by 1% during first
 		 * BQ27541_CHG_CALIB_CNT discharge heartbeats after
 		 * charging. This will allow SOC to quickly drop to
 		 * its true value if needed.
 		 */
-		if (di->old_data->is_charging)
-			di->old_data->is_charging--;
+		if (di->old_data.is_charging)
+			di->old_data.is_charging--;
 		else
 			/* Scale down 1% at a time when above SOC crit */
-			soc = di->old_data->soc - 1;
+			soc = di->old_data.soc - 1;
 	}
 
-	di->old_data->soc = soc;
+	di->old_data.soc = soc;
 
-	return di->old_data->soc;
+	return di->old_data.soc;
 }
 
 /* I2C-specific code */
@@ -441,18 +441,11 @@ static int bq27541_battery_probe(struct i2c_client *client,
 		return -ENOMEM;
 	}
 
-	di->old_data = kzalloc(sizeof(*di->old_data), GFP_KERNEL);
-	if (!di->old_data) {
-		dev_err(&client->dev,
-				"failed to allocate old device info data\n");
-		goto alloc_failed;
-	}
-
 	i2c_set_clientdata(client, di);
 	di->dev = &client->dev;
 	di->client = client;
 
-	di->old_data->is_charging = BQ27541_CHG_CALIB_CNT;
+	di->old_data.is_charging = BQ27541_CHG_CALIB_CNT;
 
 	bq27541_di = di;
 
@@ -464,10 +457,6 @@ static int bq27541_battery_probe(struct i2c_client *client,
 	schedule_delayed_work(&di->hw_config, BQ27541_INIT_DELAY);
 
 	return 0;
-
-alloc_failed:
-	kfree(di);
-	return -ENOMEM;
 }
 
 static int bq27541_battery_remove(struct i2c_client *client)
@@ -480,7 +469,6 @@ static int bq27541_battery_remove(struct i2c_client *client)
 	bq27541_cntl_cmd(di, BQ27541_SUBCMD_DISABLE_IT);
 	cancel_delayed_work_sync(&di->hw_config);
 
-	kfree(di->old_data);
 	kfree(di);
 
 	return 0;
