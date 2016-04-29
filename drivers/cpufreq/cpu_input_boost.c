@@ -35,7 +35,7 @@ struct fb_policy {
 struct ib_pcpu {
 	struct delayed_work unboost_work;
 	enum boost_status state;
-	unsigned int cpu;
+	uint32_t cpu;
 };
 
 struct ib_config {
@@ -43,11 +43,11 @@ struct ib_config {
 	struct work_struct boost_work;
 	bool running;
 	uint64_t start_time;
-	unsigned int adj_duration_ms;
-	unsigned int duration_ms;
-	unsigned int freq[2];
-	unsigned int nr_cpus_boosted;
-	unsigned int nr_cpus_to_boost;
+	uint32_t adj_duration_ms;
+	uint32_t duration_ms;
+	uint32_t freq[2];
+	uint32_t nr_cpus_boosted;
+	uint32_t nr_cpus_to_boost;
 };
 
 struct boost_policy {
@@ -55,7 +55,7 @@ struct boost_policy {
 	struct fb_policy fb;
 	struct ib_config ib;
 	struct workqueue_struct *wq;
-	unsigned int enabled;
+	uint8_t enabled;
 };
 
 static struct boost_policy *boost_policy_g;
@@ -106,7 +106,7 @@ static void ib_unboost_main(struct work_struct *work)
 	struct boost_policy *b = boost_policy_g;
 	struct ib_pcpu *pcpu = container_of(work, typeof(*pcpu),
 						unboost_work.work);
-	unsigned int cpu;
+	uint32_t cpu;
 
 	unboost_cpu(pcpu);
 
@@ -124,7 +124,7 @@ static void ib_unboost_main(struct work_struct *work)
 static void fb_boost_main(struct work_struct *work)
 {
 	struct boost_policy *b = boost_policy_g;
-	unsigned int cpu;
+	uint32_t cpu;
 
 	/* All CPUs will be boosted to policy->max */
 	set_fb_state(b, BOOST);
@@ -168,7 +168,7 @@ static int do_cpu_boost(struct notifier_block *nb,
 	/* Boost previously-offline CPU */
 	if (b->ib.nr_cpus_boosted < b->ib.nr_cpus_to_boost &&
 		policy->cpu && !pcpu->state) {
-		int duration_ms = b->ib.adj_duration_ms -
+		int32_t duration_ms = b->ib.adj_duration_ms -
 			(ktime_to_ms(ktime_get()) - b->ib.start_time);
 		if (duration_ms > 0) {
 			pcpu->state = BOOST;
@@ -356,7 +356,7 @@ static void set_ib_status(struct boost_policy *b, bool status)
 static void unboost_all_cpus(struct boost_policy *b)
 {
 	struct ib_pcpu *pcpu;
-	unsigned int cpu;
+	uint32_t cpu;
 
 	get_online_cpus();
 	for_each_possible_cpu(cpu) {
@@ -383,7 +383,7 @@ static ssize_t enabled_write(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
 	struct boost_policy *b = boost_policy_g;
-	unsigned int data;
+	uint32_t data;
 	int ret;
 
 	ret = sscanf(buf, "%u", &data);
@@ -409,7 +409,7 @@ static ssize_t ib_freqs_write(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
 	struct boost_policy *b = boost_policy_g;
-	unsigned int freq[2];
+	uint32_t freq[2];
 	int ret;
 
 	ret = sscanf(buf, "%u %u", &freq[0], &freq[1]);
@@ -430,7 +430,7 @@ static ssize_t ib_duration_ms_write(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
 	struct boost_policy *b = boost_policy_g;
-	unsigned int ms;
+	uint32_t ms;
 	int ret;
 
 	ret = sscanf(buf, "%u", &ms);
@@ -543,7 +543,7 @@ free_b:
 static int __init cpu_ib_init(void)
 {
 	struct boost_policy *b;
-	unsigned int cpu;
+	uint32_t cpu;
 	int ret;
 
 	b = alloc_boost_policy();
