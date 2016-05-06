@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2013, 2016 The Linux Foundation. All rights reserved.
  *
  * Previously licensed under the ISC license by Qualcomm Atheros, Inc.
  *
@@ -165,7 +165,7 @@ void palPktFree( tHddHandle hHdd, eFrameType frmType, void* buf, void *pPacket)
    
 
 
-tANI_U32 palGetTickCount(tHddHandle hHdd)
+tANI_TIMESTAMP palGetTickCount(tHddHandle hHdd)
 {
    return( vos_timer_get_system_ticks() );
 }
@@ -204,7 +204,9 @@ eHalStatus palSpinLockAlloc( tHddHandle hHdd, tPalSpinLockHandle *pHandle )
       pLock = vos_mem_malloc( sizeof( vos_lock_t ) );
    
       if ( NULL == pLock ) break;
-      
+
+      vos_mem_set(pLock, sizeof( vos_lock_t ), 0);
+
       vosStatus = vos_lock_init( pLock );
       if ( !VOS_IS_STATUS_SUCCESS( vosStatus ) )
       {

@@ -35,6 +35,7 @@
 #include <linux/string.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
+#include <linux/version.h>
 #include <asm/div64.h>
 
 /**=========================================================================
@@ -45,9 +46,6 @@
                
    Linux specific basic type definitions 
   
-   Copyright 2008 (c) Qualcomm, Incorporated.  All Rights Reserved.
-   
-   Qualcomm Confidential and Proprietary.
   
   ========================================================================*/
 
