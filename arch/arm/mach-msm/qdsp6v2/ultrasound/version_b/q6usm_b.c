@@ -208,7 +208,7 @@ int q6usm_us_client_buf_free(unsigned int dir,
 
 	rc = q6usm_memory_unmap(port->phys, dir, usc->session,
 				*((uint32_t *)port->ext));
-	pr_debug("%s: data[%p]phys[%p][%p]\n", __func__,
+	pr_debug("%s: data[%pK]phys[%pK][%pK]\n", __func__,
 		 (void *)port->data, (void *)port->phys, (void *)&port->phys);
 	/* 4K boundary is required by the API with QDSP6 */
 	size = (port->buf_size * port->buf_cnt + MEM_4K_OFFSET) & MEM_4K_MASK;
@@ -247,7 +247,7 @@ int q6usm_us_param_buf_free(unsigned int dir,
 
 	rc = q6usm_memory_unmap(port->param_phys, dir, usc->session,
 				*((uint32_t *)port->param_buf_mem_handle));
-	pr_debug("%s: data[%p]phys[%p][%p]\n", __func__,
+	pr_debug("%s: data[%pK]phys[%pK][%pK]\n", __func__,
 		 (void *)port->param_buf, (void *)port->param_phys,
 		 (void *)&port->param_phys);
 	/* 4K boundary is required by the API with QDSP6 */
@@ -359,7 +359,7 @@ struct us_client *q6usm_us_client_alloc(
 		spin_lock_init(&usc->port[lcnt].dsp_lock);
 		usc->port[lcnt].ext = (void *)p_mem_handle++;
 		usc->port[lcnt].param_buf_mem_handle = (void *)p_mem_handle++;
-		pr_err("%s: usc->port[%d].ext=%p;\n",
+		pr_err("%s: usc->port[%d].ext=%pK;\n",
 		       __func__, lcnt, usc->port[lcnt].ext);
 	}
 	atomic_set(&usc->cmd_state, 0);
@@ -405,7 +405,7 @@ int q6usm_us_client_buf_alloc(unsigned int dir,
 
 	port->buf_cnt = bufcnt;
 	port->buf_size = bufsz;
-	pr_debug("%s: data[%p]; phys[%p]; [%p]\n", __func__,
+	pr_debug("%s: data[%pK]; phys[%pK]; [%pK]\n", __func__,
 		 (void *)port->data,
 		 (void *)port->phys,
 		 (void *)&port->phys);
@@ -463,7 +463,7 @@ int q6usm_us_param_buf_alloc(unsigned int dir,
 	}
 
 	port->param_buf_size = bufsz;
-	pr_debug("%s: param_buf[%p]; param_phys[%p]; [%p]\n", __func__,
+	pr_debug("%s: param_buf[%pK]; param_phys[%pK]; [%pK]\n", __func__,
 		 (void *)port->param_buf,
 		 (void *)port->param_phys,
 		 (void *)&port->param_phys);
@@ -1300,7 +1300,7 @@ int q6usm_set_us_detection(struct us_client *usc,
 	if ((usc == NULL) ||
 	    (detect_info_size == 0) ||
 	    (detect_info == NULL)) {
-		pr_err("%s: wrong input: usc=0x%p, inf_size=%d; info=0x%p",
+		pr_err("%s: wrong input: usc=0x%pK, inf_size=%d; info=0x%pK",
 		       __func__,
 		       usc,
 		       detect_info_size,
