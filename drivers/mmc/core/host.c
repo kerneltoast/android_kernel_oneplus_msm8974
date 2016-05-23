@@ -552,18 +552,16 @@ static ssize_t store_scale_down_in_low_wr_load(struct device *dev,
 {
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
 	unsigned long value;
-	int retval = -EINVAL;
 
 	if (!host)
-		goto out;
+		return -EINVAL;
 
 	if (!host->card || kstrtoul(buf, 0, &value))
-		goto out;
+		return -EINVAL;
 
 	host->clk_scaling.scale_down_in_low_wr_load = value;
 
-out:
-	return retval;
+	return count;
 }
 
 static ssize_t show_up_threshold(struct device *dev,
