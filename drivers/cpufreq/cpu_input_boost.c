@@ -215,7 +215,8 @@ static int fb_unblank_boost(struct notifier_block *nb,
 }
 
 static struct notifier_block fb_boost_nb = {
-	.notifier_call = fb_unblank_boost,
+	.notifier_call	= fb_unblank_boost,
+	.priority	= INT_MAX,
 };
 
 static void cpu_ib_input_event(struct input_handle *handle, unsigned int type,
