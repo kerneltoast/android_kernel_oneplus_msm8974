@@ -24,6 +24,7 @@
 enum boost_status {
 	UNBOOST,
 	BOOST,
+	REBOOST,
 };
 
 struct fb_policy {
@@ -41,7 +42,8 @@ struct ib_pcpu {
 struct ib_config {
 	struct ib_pcpu __percpu *boost_info;
 	struct work_struct boost_work;
-	bool running;
+	struct work_struct reboost_work;
+	enum boost_status running;
 	uint64_t start_time;
 	uint32_t adj_duration_ms;
 	uint32_t duration_ms;
@@ -64,7 +66,7 @@ static void boost_cpu0(struct boost_policy *b);
 static bool is_driver_enabled(struct boost_policy *b);
 static bool is_fb_boost_active(struct boost_policy *b);
 static void set_fb_state(struct boost_policy *b, enum boost_status state);
-static void set_ib_status(struct boost_policy *b, bool status);
+static void set_ib_status(struct boost_policy *b, enum boost_status status);
 static void unboost_all_cpus(struct boost_policy *b);
 static void unboost_cpu(struct ib_pcpu *pcpu);
 
@@ -118,7 +120,7 @@ static void ib_unboost_main(struct work_struct *work)
 	}
 
 	/* All input boosts are done, ready to accept new boosts now */
-	set_ib_status(b, false);
+	set_ib_status(b, UNBOOST);
 }
 
 static void fb_boost_main(struct work_struct *work)
@@ -145,6 +147,20 @@ static void fb_unboost_main(struct work_struct *work)
 
 	set_fb_state(b, UNBOOST);
 	unboost_all_cpus(b);
+}
+
+static void ib_reboost_main(struct work_struct *work)
+{
+	struct boost_policy *b = boost_policy_g;
+	struct ib_pcpu *pcpu = per_cpu_ptr(b->ib.boost_info, 0);
+
+	/* Only keep CPU0 boosted (more efficient) */
+	if (cancel_delayed_work_sync(&pcpu->unboost_work))
+		queue_delayed_work(b->wq, &pcpu->unboost_work,
+				msecs_to_jiffies(b->ib.adj_duration_ms));
+
+	/* Clear reboost flag */
+	set_ib_status(b, pcpu->state);
 }
 
 static int do_cpu_boost(struct notifier_block *nb,
@@ -223,29 +239,25 @@ static void cpu_ib_input_event(struct input_handle *handle, unsigned int type,
 		unsigned int code, int value)
 {
 	struct boost_policy *b = handle->handler->private;
-	bool do_boost, boost_running;
+	enum boost_status ib_status;
+	bool do_boost;
 
 	spin_lock(&b->lock);
-	do_boost = b->enabled && !b->fb.state;
-	boost_running = b->ib.running;
+	ib_status = b->ib.running;
+	do_boost = b->enabled && !b->fb.state && (ib_status != REBOOST);
 	spin_unlock(&b->lock);
 
 	if (!do_boost)
 		return;
 
 	/* Continuous boosting (from constant user input) */
-	if (boost_running) {
-		/* Only keep CPU0 boosted (more efficient) */
-		struct ib_pcpu *pcpu = per_cpu_ptr(b->ib.boost_info, 0);
-
-		if (cancel_delayed_work_sync(&pcpu->unboost_work)) {
-			queue_delayed_work(b->wq, &pcpu->unboost_work,
-				msecs_to_jiffies(b->ib.adj_duration_ms));
-			return;
-		}
+	if (ib_status == BOOST) {
+		set_ib_status(b, REBOOST);
+		queue_work(b->wq, &b->ib.reboost_work);
+		return;
 	}
 
-	set_ib_status(b, true);
+	set_ib_status(b, BOOST);
 
 	queue_work(b->wq, &b->ib.boost_work);
 }
@@ -360,7 +372,7 @@ static void set_fb_state(struct boost_policy *b, enum boost_status state)
 	spin_unlock(&b->lock);
 }
 
-static void set_ib_status(struct boost_policy *b, bool status)
+static void set_ib_status(struct boost_policy *b, enum boost_status status)
 {
 	spin_lock(&b->lock);
 	b->ib.running = status;
@@ -381,7 +393,7 @@ static void unboost_all_cpus(struct boost_policy *b)
 	}
 	put_online_cpus();
 
-	set_ib_status(b, false);
+	set_ib_status(b, UNBOOST);
 }
 
 static void unboost_cpu(struct ib_pcpu *pcpu)
@@ -590,6 +602,7 @@ static int __init cpu_ib_init(void)
 	}
 
 	INIT_WORK(&b->ib.boost_work, ib_boost_main);
+	INIT_WORK(&b->ib.reboost_work, ib_reboost_main);
 
 	spin_lock_init(&b->lock);
 
