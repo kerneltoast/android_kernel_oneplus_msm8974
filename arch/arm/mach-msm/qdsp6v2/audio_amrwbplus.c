@@ -49,7 +49,7 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int rc = 0;
 
 	switch (cmd) {
-	case AUDIO_START: {
+	case AUDIO_START:
 		pr_err("%s[%p]: AUDIO_START session_id[%d]\n", __func__,
 			audio, audio->ac->session);
 		if (audio->feedback == NON_TUNNEL_MODE) {
@@ -99,10 +99,8 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		pr_debug("%s:AUDIO_START sessionid[%d]enable[%d]\n", __func__,
 			audio->ac->session,
 			audio->enabled);
-		if (audio->stopped == 1)
-			audio->stopped = 0;
-			break;
-		}
+		audio->stopped = 0;
+		break;
 	case AUDIO_GET_AMRWBPLUS_CONFIG_V2: {
 		if ((audio) && (arg) && (audio->codec_cfg)) {
 			if (copy_to_user((void *)arg, audio->codec_cfg,

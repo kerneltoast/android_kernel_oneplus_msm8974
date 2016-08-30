@@ -1666,7 +1666,7 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 			else
 				*update = (uint32_t)sg_dma_address(
 							sg_ptr->sgl);
-				len += (uint32_t)sg->length;
+			len += (uint32_t)sg->length;
 		} else {
 			struct qseecom_sg_entry *update;
 			int j = 0;

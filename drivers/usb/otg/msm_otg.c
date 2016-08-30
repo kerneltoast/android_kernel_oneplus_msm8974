@@ -4738,10 +4738,11 @@ static int __init msm_otg_probe(struct platform_device *pdev)
 			motg->caps = ALLOW_PHY_RETENTION |
 				ALLOW_PHY_REGULATORS_LPM;
 
-		if (motg->pdata->mpm_dpshv_int || motg->pdata->mpm_dmshv_int)
+		if (motg->pdata->mpm_dpshv_int || motg->pdata->mpm_dmshv_int) {
 			motg->caps |= ALLOW_HOST_PHY_RETENTION;
 			device_create_file(&pdev->dev,
 					&dev_attr_dpdm_pulldown_enable);
+		}
 	}
 
 	if (motg->pdata->enable_lpm_on_dev_suspend)
