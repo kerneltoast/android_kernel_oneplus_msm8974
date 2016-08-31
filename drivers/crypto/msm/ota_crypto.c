@@ -809,12 +809,9 @@ err:
 
 static int __init qcota_init(void)
 {
-	int rc;
 	struct ota_dev_control *podev;
 
-	rc = _qcota_debug_init();
-	if (rc)
-		return rc;
+	_qcota_debug_init();
 
 	podev = &qcota_dev;
 	INIT_LIST_HEAD(&podev->ready_commands);
