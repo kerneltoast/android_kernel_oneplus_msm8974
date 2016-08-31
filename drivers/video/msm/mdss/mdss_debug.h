@@ -38,6 +38,8 @@
 #define ATRACE_INT(name, value) \
 	trace_mdp_trace_counter(current->tgid, name, value)
 
+void mdss_dsi_debug_check_te(struct mdss_panel_data *pdata);
+
 #ifdef CONFIG_DEBUG_FS
 struct mdss_debug_base {
 	struct mdss_debug_data *mdd;
@@ -78,7 +80,6 @@ int mdss_create_xlog_debug(struct mdss_debug_data *mdd);
 void mdss_xlog(const char *name, ...);
 void mdss_xlog_dump(void);
 void mdss_dump_reg(char __iomem *base, int len);
-void mdss_dsi_debug_check_te(struct mdss_panel_data *pdata);
 void mdss_xlog_tout_handler(const char *name, ...);
 #else
 static inline int mdss_debugfs_init(struct mdss_data_type *mdata) { return 0; }
@@ -97,11 +98,10 @@ static inline int mdss_misr_get(struct mdss_data_type *mdata,
 static inline void mdss_misr_crc_collect(struct mdss_data_type *mdata,
 						int block_id) { }
 
-static inline int create_xlog_debug(struct mdss_data_type *mdata) { }
+static inline int create_xlog_debug(struct mdss_data_type *mdata) { return 0; }
 static inline void mdss_xlog(const char *name, ...) { }
 static inline void mdss_xlog_dump(void) { }
 static inline void mdss_dump_reg(char __iomem *base, int len) { }
-static inline void mdss_dsi_debug_check_te(struct mdss_panel_data *pdata) { }
 static inline void mdss_xlog_tout_handler(const char *name, ...) { }
 #endif
 #endif /* MDSS_DEBUG_H */
