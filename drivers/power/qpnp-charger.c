@@ -557,6 +557,8 @@ struct qpnp_chg_chip {
 	atomic_t suspended;
 	unsigned int usbin_counts;
 #endif
+	int old_soc;
+	ktime_t last_soc_chk;
 };
 
 extern void mcu_en_gpio_set(int value);//sjc0623 add
@@ -3613,8 +3615,14 @@ get_prop_capacity(struct qpnp_chg_chip *chip)
 		return chip->fake_battery_soc;
 
 	if (qpnp_batt_gauge && qpnp_batt_gauge->get_battery_soc){
-
-		return qpnp_batt_gauge->get_battery_soc();
+		ktime_t now = ktime_get();
+		if (!chip->last_soc_chk.tv64 ||
+			(ktime_to_ms(ktime_sub(now, chip->last_soc_chk)) >
+			(BATT_HEARTBEAT_INTERVAL - MSEC_PER_SEC))) {
+			chip->old_soc = qpnp_batt_gauge->get_battery_soc();
+			chip->last_soc_chk = now;
+		}
+		return chip->old_soc;
 	}	
 	else {
 		pr_err("qpnp-charger no batt gauge assuming 50percent\n");
