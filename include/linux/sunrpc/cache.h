@@ -249,7 +249,7 @@ static inline time_t convert_to_wallclock(time_t sinceboot)
 
 static inline time_t get_expiry(char **bpp)
 {
-	int rv;
+	int rv = 0;
 	struct timespec boot;
 
 	if (get_int(bpp, &rv))
