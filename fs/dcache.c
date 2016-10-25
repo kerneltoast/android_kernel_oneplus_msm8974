@@ -2656,6 +2656,9 @@ char *d_path(const struct path *path, char *buf, int buflen)
 	struct path root;
 	int error;
 
+	if (!path->dentry)
+		return ERR_PTR(-EINVAL);
+
 	/*
 	 * We have various synthetic filesystems that never get mounted.  On
 	 * these filesystems dentries are never used for lookup purposes, and
