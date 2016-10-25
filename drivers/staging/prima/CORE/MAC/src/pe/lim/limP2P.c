@@ -1167,7 +1167,7 @@ void limSendP2PActionFrame(tpAniSirGlobal pMac, tpSirMsgQ pMsg)
 
 #ifdef WLAN_FEATURE_11W
     pActionHdr = (tpSirMacActionFrameHdr) (pFrame + sizeof(tSirMacMgmtHdr));
-
+    pMacHdr = (tpSirMacMgmtHdr)pFrame;
     /*
      * Setting Protected bit only for Robust Action Frames
      * This has to be based on the current Connection with the station
@@ -1177,7 +1177,6 @@ void limSendP2PActionFrame(tpAniSirGlobal pMac, tpSirMsgQ pMsg)
         psessionEntry->limRmfEnabled && (!limIsGroupAddr(pMacHdr->da)) &&
         lim_is_robust_mgmt_action_frame(pActionHdr->category))
     {
-        pMacHdr = (tpSirMacMgmtHdr)pFrame;
         /* All psession checks are already done at start */
         limSetProtectedBit(pMac, psessionEntry, pMacHdr->da, pMacHdr);
 
