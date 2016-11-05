@@ -942,7 +942,7 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 				unsigned long long t;
 				unsigned long nanosec_rem;
 
-				t = cpu_clock(printk_cpu);
+				t = cpu_clock(printk_cpu) + get_total_sleep_time();
 				nanosec_rem = do_div(t, 1000000000);
 				tlen = sprintf(tbuf, "[%5lu.%06lu] ",
 						(unsigned long) t,

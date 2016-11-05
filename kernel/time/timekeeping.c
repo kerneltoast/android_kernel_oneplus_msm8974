@@ -1322,3 +1322,18 @@ void xtime_update(unsigned long ticks)
 	do_timer(ticks);
 	write_sequnlock(&xtime_lock);
 }
+
+/**
+ * get_total_sleep_time() - returns total sleep time in nanoseconds
+ */
+s64 get_total_sleep_time(void)
+{
+	struct timespec ts = {
+		.tv_sec = timekeeper.total_sleep_time.tv_sec,
+		.tv_nsec = timekeeper.total_sleep_time.tv_nsec
+	};
+
+	set_normalized_timespec(&ts, ts.tv_sec, ts.tv_nsec);
+
+	return timespec_to_ns(&ts);
+}
