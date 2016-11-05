@@ -944,11 +944,6 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 
 				t = cpu_clock(printk_cpu);
 				nanosec_rem = do_div(t, 1000000000);
-				/* Transition to boot time 10s after boot */
-				if (likely(t > 10)) {
-					t = ktime_to_ns(ktime_get_boottime());
-					nanosec_rem = do_div(t, 1000000000);
-				}
 				tlen = sprintf(tbuf, "[%5lu.%06lu] ",
 						(unsigned long) t,
 						nanosec_rem / 1000);
