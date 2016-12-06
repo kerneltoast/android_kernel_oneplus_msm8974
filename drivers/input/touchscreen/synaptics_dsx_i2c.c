@@ -597,6 +597,7 @@ static void synaptics_update_gesture_status(struct synaptics_rmi4_data *ts)
 	atomic_set(&ts->syna_use_gesture,
 			atomic_read(&ts->double_tap_enable) ||
 			atomic_read(&ts->double_swipe_enable) ||
+			atomic_read(&ts->up_arrow_enable) ||
 			atomic_read(&ts->down_arrow_enable) ||
 			atomic_read(&ts->left_arrow_enable) ||
 			atomic_read(&ts->right_arrow_enable) ||
@@ -722,6 +723,7 @@ static int synaptics_rmi4_proc_##type##_write(struct file *filp, const char __us
 }
 
 TS_ENABLE_FOPS(double_swipe);
+TS_ENABLE_FOPS(up_arrow);
 TS_ENABLE_FOPS(down_arrow);
 TS_ENABLE_FOPS(left_arrow);
 TS_ENABLE_FOPS(right_arrow);
@@ -782,6 +784,13 @@ static int synaptics_rmi4_init_touchpanel_proc(void)
 	if (proc_entry) {
 		proc_entry->write_proc = synaptics_rmi4_proc_double_swipe_write;
 		proc_entry->read_proc = synaptics_rmi4_proc_double_swipe_read;
+	}
+
+	// wake to 'Λ' gesture
+	proc_entry = create_proc_entry("up_arrow_enable", 0664, procdir);
+	if (proc_entry) {
+		proc_entry->write_proc = synaptics_rmi4_proc_up_arrow_write;
+		proc_entry->read_proc = synaptics_rmi4_proc_up_arrow_read;
 	}
 
 	// wake to 'V' gesture
@@ -965,6 +974,8 @@ static unsigned char synaptics_rmi4_update_gesture2(unsigned char *gesture,
 			switch (gesture[2]) {
 				case 0x01:  //UP
 					gesturemode = DownVee;
+					if (atomic_read(&syna_rmi4_data->up_arrow_enable))
+						keyvalue = KEY_GESTURE_UP_ARROW;
 					break;
 				case 0x02:  //DOWN
 					gesturemode = UpVee;
@@ -1872,6 +1883,7 @@ static void synaptics_rmi4_set_params(struct synaptics_rmi4_data *rmi4_data)
 	set_bit(KEY_GESTURE_V, rmi4_data->input_dev->keybit);
 	set_bit(KEY_GESTURE_LTR, rmi4_data->input_dev->keybit);
 	set_bit(KEY_GESTURE_GTR, rmi4_data->input_dev->keybit);
+	set_bit(KEY_GESTURE_UP_ARROW, rmi4_data->input_dev->keybit);
 	synaptics_ts_init_virtual_key(rmi4_data);
 
 	input_set_abs_params(rmi4_data->input_dev,
@@ -1924,6 +1936,7 @@ static int synaptics_rmi4_set_input_dev(struct synaptics_rmi4_data *rmi4_data)
 	atomic_set(&rmi4_data->syna_use_gesture, 1);
 	atomic_set(&rmi4_data->double_tap_enable, 1);
 	atomic_set(&rmi4_data->double_swipe_enable, 0);
+	atomic_set(&rmi4_data->up_arrow_enable, 0);
 	atomic_set(&rmi4_data->down_arrow_enable, 0);
 	atomic_set(&rmi4_data->left_arrow_enable, 0);
 	atomic_set(&rmi4_data->right_arrow_enable, 0);
