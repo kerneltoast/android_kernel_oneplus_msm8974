@@ -73,8 +73,7 @@ static int fb_notifier_callback(struct notifier_block *nb,
 	struct fb_event *evdata = data;
 	int *blank = evdata->data;
 
-	/* Parse framebuffer events as soon as they occur */
-	if (action != FB_EARLY_EVENT_BLANK)
+	if (action != FB_EVENT_BLANK)
 		return NOTIFY_OK;
 
 	switch (*blank) {
