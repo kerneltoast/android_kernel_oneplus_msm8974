@@ -576,6 +576,23 @@ static int __init cpu_ib_init(void)
 	if (!b)
 		return -ENOMEM;
 
+	spin_lock_init(&b->lock);
+
+	INIT_WORK(&b->fb.boost_work, fb_boost_main);
+	INIT_DELAYED_WORK(&b->fb.unboost_work, fb_unboost_main);
+	INIT_WORK(&b->ib.boost_work, ib_boost_main);
+	INIT_WORK(&b->ib.reboost_work, ib_reboost_main);
+
+	for_each_possible_cpu(cpu) {
+		struct ib_pcpu *pcpu = per_cpu_ptr(b->ib.boost_info, cpu);
+
+		pcpu->cpu = cpu;
+		INIT_DELAYED_WORK(&pcpu->unboost_work, ib_unboost_main);
+	}
+
+	/* Allow global boost config access */
+	boost_policy_g = b;
+
 	cpu_ib_input_handler.private = b;
 	ret = input_register_handler(&cpu_ib_input_handler);
 	if (ret) {
@@ -589,25 +606,7 @@ static int __init cpu_ib_init(void)
 
 	cpufreq_register_notifier(&do_cpu_boost_nb, CPUFREQ_POLICY_NOTIFIER);
 
-	INIT_DELAYED_WORK(&b->fb.unboost_work, fb_unboost_main);
-
-	INIT_WORK(&b->fb.boost_work, fb_boost_main);
-
 	fb_register_client(&fb_boost_nb);
-
-	for_each_possible_cpu(cpu) {
-		struct ib_pcpu *pcpu = per_cpu_ptr(b->ib.boost_info, cpu);
-		pcpu->cpu = cpu;
-		INIT_DELAYED_WORK(&pcpu->unboost_work, ib_unboost_main);
-	}
-
-	INIT_WORK(&b->ib.boost_work, ib_boost_main);
-	INIT_WORK(&b->ib.reboost_work, ib_reboost_main);
-
-	spin_lock_init(&b->lock);
-
-	/* Allow global boost config access */
-	boost_policy_g = b;
 
 	return 0;
 
