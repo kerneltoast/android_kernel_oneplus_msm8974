@@ -768,6 +768,7 @@ static struct msm_gpiomux_config msm_epm_configs[] __initdata = {
 /*OPPO 2013-11-04 liaofuchun modify end*/
 };
 //OPPO yuyi 2014-03-18 add begin for 14001 NFC spi clk
+#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 #ifdef CONFIG_MACH_MSM8974_14001
 static struct gpiomux_setting gpio_blsp6_spi3_config = {
 	.func = GPIOMUX_FUNC_2, 
@@ -790,6 +791,7 @@ static struct gpiomux_setting gpio_blsp6_spi_suspend_config = {
 	.drv = GPIOMUX_DRV_2MA, 
 	.pull = GPIOMUX_PULL_NONE, 
 };
+#endif
 #endif
 //OPPO yuyi 2014-03-18 add end for 14001 NFC spi clk
 //OPPO yuyi 2014-06-28 add begin for 14021 NFC spi clk
@@ -1068,6 +1070,7 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 	},
 #endif
 /* OPPO 2014-06-18 ranfei Add end */
+#if defined(CONFIG_KS8851) || defined(CONFIG_KS8851_MODULE)
 	{
 		.gpio      = 53,		/* BLSP2 QUP4 SPI_DATA_MOSI */
 		.settings = {
@@ -1096,6 +1099,7 @@ static struct msm_gpiomux_config msm_blsp_configs[] __initdata = {
 			[GPIOMUX_SUSPENDED] = &gpio_suspend_config[0],
 		},
 	},
+#endif
 };
 
 static struct msm_gpiomux_config msm8974_slimbus_config[] __initdata = {
