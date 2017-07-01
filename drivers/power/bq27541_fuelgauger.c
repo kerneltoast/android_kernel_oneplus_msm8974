@@ -87,7 +87,7 @@
 #define BQ27541_SUBCMD_CAL_MODE  0x0040
 #define BQ27541_SUBCMD_RESET   0x0041
 #define ZERO_DEGREES_CELSIUS_IN_TENTH_KELVIN   2731
-#define BQ27541_INIT_DELAY   ((HZ)*1)
+#define BQ27541_INIT_DELAY   (msecs_to_jiffies(300))
 
 #define BQ27541_CHG_CALIB_CNT   3 /* Num of calibration cycles after charging */
 #define BQ27541_SOC_CRIT   41 /* SOC threshold to stop limiting SOC drop rate */
@@ -406,7 +406,8 @@ static void bq27541_hw_config(struct work_struct *work)
 	di = container_of(work, struct bq27541_device_info, hw_config.work);
 	ret = bq27541_chip_config(di);
 	if (ret) {
-		dev_err(di->dev, "Failed to configure device\n");
+		dev_err(di->dev, "Failed to configure device, retrying\n");
+		schedule_delayed_work(&di->hw_config, BQ27541_INIT_DELAY);
 		return;
 	}
 
