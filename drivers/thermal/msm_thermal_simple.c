@@ -176,10 +176,16 @@ static int do_cpu_throttle(struct notifier_block *nb,
 	if (throttle_freq) {
 		if (user_max && (user_max < throttle_freq))
 			policy->max = user_max;
-		else
+		else if (policy->max > throttle_freq)
 			policy->max = throttle_freq;
 	} else {
-		policy->max = user_max ? user_max : policy->cpuinfo.max_freq;
+		if (user_max) {
+			policy->max = user_max;
+		} else {
+			policy->max = cpufreq_get_user_max();
+			if (!policy->max)
+				policy->max = policy->cpuinfo.max_freq;
+		}
 	}
 
 	if (policy->min > policy->max)
