@@ -45,8 +45,6 @@
 #define MDP_PP_AD_BL_LINEAR	0x0
 #define MDP_PP_AD_BL_LINEAR_INV	0x1
 
-#define FB_LP_COOLOFF 750
-
 /**
  * enum mdp_notify_event - Different frame events to indicate frame update state
  *
@@ -174,8 +172,6 @@ struct msm_fb_data_type {
 
 	int idle_time;
 	struct delayed_work idle_notify_work;
-	int lp_coff;
-	struct delayed_work lp_cooloff_work;
 
 	int op_enable;
 	u32 fb_imgType;

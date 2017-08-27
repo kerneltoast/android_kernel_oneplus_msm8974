@@ -2755,15 +2755,11 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 
 	case MSMFB_VSYNC_CTRL:
 	case MSMFB_OVERLAY_VSYNC_CTRL:
-		if (mfd->lp_coff) {
-			ret = 0;
+		if (!copy_from_user(&val, argp, sizeof(val))) {
+			ret = mdss_mdp_overlay_vsync_ctrl(mfd, val);
 		} else {
-			if (!copy_from_user(&val, argp, sizeof(val))) {
-				ret = mdss_mdp_overlay_vsync_ctrl(mfd, val);
-			} else {
-				pr_err("MSMFB_OVERLAY_VSYNC_CTRL failed (%d)\n", ret);
-				ret = -EFAULT;
-			}
+			pr_err("MSMFB_OVERLAY_VSYNC_CTRL failed (%d)\n", ret);
+			ret = -EFAULT;
 		}
 		break;
 	case MSMFB_OVERLAY_COMMIT:
