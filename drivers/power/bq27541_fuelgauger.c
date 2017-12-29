@@ -48,6 +48,7 @@
 #define BQ27541_REG_AP			0x24
 #define BQ27541_REG_TTECP		0x26
 #define BQ27541_REG_SOH			0x28
+#define BQ27541_REG_CC			0x2a
 #define BQ27541_REG_SOC			0x2c
 #define BQ27541_REG_NIC			0x2e
 #define BQ27541_REG_ICR			0x30
@@ -312,6 +313,34 @@ static int bq27541_battery_soc(struct bq27541_device_info *di)
 	return di->old_data.soc;
 }
 
+/* Full charge capacity in mAh */
+static int bq27541_battery_fcc(struct bq27541_device_info *di)
+{
+	int ret, fcc_mah;
+
+	ret = bq27541_read(BQ27541_REG_FCC, &fcc_mah, di);
+	if (ret) {
+		dev_err(di->dev, "error reading fcc, ret: %d\n", ret);
+		return 0;
+	}
+
+	return fcc_mah;
+}
+
+/* Cycle count */
+static int bq27541_battery_cycles(struct bq27541_device_info *di)
+{
+	int ret, cycle_count;
+
+	ret = bq27541_read(BQ27541_REG_CC, &cycle_count, di);
+	if (ret) {
+		dev_err(di->dev, "error reading cycle count, ret: %d\n", ret);
+		return 0;
+	}
+
+	return cycle_count;
+}
+
 /* I2C-specific code */
 static int bq27541_i2c_txsubcmd(u8 reg, unsigned short subcmd,
 		struct bq27541_device_info *di)
@@ -391,11 +420,23 @@ static int bq27541_get_average_current(void)
 	return bq27541_average_current(bq27541_di);
 }
 
+static int bq27541_get_battery_fcc(void)
+{
+	return bq27541_battery_fcc(bq27541_di);
+}
+
+static int bq27541_get_battery_cycles(void)
+{
+	return bq27541_battery_cycles(bq27541_di);
+}
+
 static struct qpnp_battery_gauge bq27541_batt_gauge = {
 	.get_battery_mvolts		= bq27541_get_battery_mvolts,
 	.get_battery_temperature	= bq27541_get_battery_temperature,
 	.get_battery_soc		= bq27541_get_battery_soc,
 	.get_average_current		= bq27541_get_average_current,
+	.get_battery_fcc		= bq27541_get_battery_fcc,
+	.get_battery_cycles		= bq27541_get_battery_cycles,
 };
 
 static void bq27541_hw_config(struct work_struct *work)

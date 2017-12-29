@@ -3524,16 +3524,8 @@ get_prop_current_now(struct qpnp_chg_chip *chip)
 static int
 get_prop_full_design(struct qpnp_chg_chip *chip)
 {
-	union power_supply_propval ret = {0,};
-
-	if (chip->bms_psy) {
-		chip->bms_psy->get_property(chip->bms_psy,
-			  POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN, &ret);
-		return ret.intval;
-	} else {
-		pr_debug("No BMS supply registered return 0\n");
-	}
-
+	if (qpnp_batt_gauge && qpnp_batt_gauge->get_battery_fcc)
+		return qpnp_batt_gauge->get_battery_fcc();
 	return 0;
 }
 
@@ -3694,12 +3686,9 @@ get_prop_batt_temp(struct qpnp_chg_chip *chip)
 /* OPPO 2013-08-13 wangjc Modify end */
 static int get_prop_cycle_count(struct qpnp_chg_chip *chip)
 {
-	union power_supply_propval ret = {0,};
-
-	if (chip->bms_psy)
-		chip->bms_psy->get_property(chip->bms_psy,
-			  POWER_SUPPLY_PROP_CYCLE_COUNT, &ret);
-	return ret.intval;
+	if (qpnp_batt_gauge && qpnp_batt_gauge->get_battery_cycles)
+		return qpnp_batt_gauge->get_battery_cycles();
+	return 0;
 }
 
 static int get_prop_vchg_loop(struct qpnp_chg_chip *chip)

@@ -46,6 +46,8 @@ struct qpnp_battery_gauge {
 	int (*monitor_for_recharging) (void);
 	int (*get_battery_soc) (void);
 	int (*get_average_current) (void);
+	int (*get_battery_fcc) (void);
+	int (*get_battery_cycles) (void);
 	int (*is_battery_authenticated) (void);//wangjc add for authentication
 	int (*get_batt_cc) (void);/* yangfangbiao@oneplus.cn, 2015/02/13  Add fcc interface */
 	int (*get_batt_fcc) (void);  /* yangfangbiao@oneplus.cn, 2015/01/06  Modify for  sync with KK charge standard  */
