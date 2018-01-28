@@ -265,9 +265,6 @@ static int bq27541_battery_soc(struct bq27541_device_info *di)
 		/* Prevent SOC from quickly dropping to 99% */
 		if (soc > 90 && soc < 100)
 			soc++;
-		/* Reserve 1% charge to be safe */
-		if (soc < 50)
-			soc--;
 	}
 
 	/* Double check before reporting 0% SOC */
