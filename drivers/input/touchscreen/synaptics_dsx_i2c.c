@@ -1179,12 +1179,8 @@ static int synaptics_rmi4_f12_abs_report(struct synaptics_rmi4_data *rmi4_data,
  * fingers detected.
  */
 static void synaptics_rmi4_report_touch(struct synaptics_rmi4_data *rmi4_data,
-		struct synaptics_rmi4_fn *fhandler, const ktime_t timestamp)
+		struct synaptics_rmi4_fn *fhandler)
 {
-	input_event(rmi4_data->input_dev, EV_SYN, SYN_TIME_SEC,
-			ktime_to_timespec(timestamp).tv_sec);
-	input_event(rmi4_data->input_dev, EV_SYN, SYN_TIME_NSEC,
-			ktime_to_timespec(timestamp).tv_nsec);
 	synaptics_rmi4_f12_abs_report(rmi4_data, fhandler);
 }
 
@@ -1197,7 +1193,7 @@ static void synaptics_rmi4_report_touch(struct synaptics_rmi4_data *rmi4_data,
  * and calls synaptics_rmi4_report_touch() with the appropriate
  * function handler for each function with valid data inputs.
  */
-static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data, const ktime_t timestamp)
+static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data)
 {
 	int ret;
 	unsigned char data[MAX_INTR_REGISTERS + 1];
@@ -1241,7 +1237,7 @@ static void synaptics_rmi4_sensor_report(struct synaptics_rmi4_data *rmi4_data, 
 				if (fhandler->intr_mask &
 						intr[fhandler->intr_reg_num]) {
 					synaptics_rmi4_report_touch(rmi4_data,
-							fhandler, timestamp);
+							fhandler);
 				}
 			}
 		}
@@ -1291,7 +1287,7 @@ static irqreturn_t synaptics_rmi4_irq(int irq, void *data)
 		}
 	}
 
-	synaptics_rmi4_sensor_report(rmi4_data, ktime_get());
+	synaptics_rmi4_sensor_report(rmi4_data);
 
 	if (rmi4_data->syna_isr_ws.active)
 		__pm_relax(&rmi4_data->syna_isr_ws);
